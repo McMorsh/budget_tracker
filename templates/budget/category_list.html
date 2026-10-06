@@ -32,11 +32,13 @@
         <tr data-id="{{ category.pk }}">
           <td class="drag-handle" title="Перетащите, чтобы изменить порядок">⠿</td>
           <td class="category-name" title="Двойной клик — переименовать">{{ category.name }}</td>
-          <td class="row-actions">
-            <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="link-button">В архив</button>
-            </form>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="link-button">В архив</button>
+              </form>
+            </div>
           </td>
         </tr>
       {% endfor %}
@@ -58,11 +60,13 @@
         {% for category in archived_categories %}
           <tr class="archived-row">
             <td>{{ category.name }}</td>
-            <td class="row-actions">
-              <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="link-button">Вернуть</button>
-              </form>
+            <td class="actions-cell">
+              <div class="row-actions">
+                <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="link-button">Вернуть</button>
+                </form>
+              </div>
             </td>
           </tr>
         {% endfor %}

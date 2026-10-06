@@ -19,7 +19,7 @@
           <a href="{% url 'budget:index' %}" {% if request.resolver_match.namespace == 'budget' and request.resolver_match.url_name != 'categories' %}class="active"{% endif %}>Бюджет</a>
           <a href="{% url 'reports:index' %}" {% if request.resolver_match.namespace == 'reports' %}class="active"{% endif %}>Отчёты</a>
           <a href="{% url 'budget:categories' %}" {% if request.resolver_match.url_name == 'categories' %}class="active"{% endif %}>Категории</a>
-          <a href="{% url 'purchases' %}" {% if request.resolver_match.url_name == 'purchases' %}class="active"{% endif %}>Покупки</a>
+          <a href="{% url 'purchases:index' %}" {% if request.resolver_match.namespace == 'purchases' %}class="active"{% endif %}>Покупки</a>
           {% if user.is_staff %}
             <a href="{% url 'admin:index' %}">Админка</a>
           {% endif %}

@@ -1,9 +1,14 @@
 """Модели планов покупок: цели, взносы в них и прогресс накопления."""
+from datetime import date
 from decimal import Decimal
+from typing import Any
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
+
+from budget.utils import MAX_YEAR, MIN_YEAR
 
 
 class PlannedPurchase(models.Model):
@@ -20,6 +25,9 @@ class PlannedPurchase(models.Model):
         max_digits=12,
         decimal_places=2,
         default=Decimal("0"),
+        # Валидатор дублирует CheckConstraint ниже, но срабатывает в формах
+        # (добавление и инлайн-правка), а не только на уровне базы.
+        validators=[MinValueValidator(Decimal("0"))],
     )
     priority = models.PositiveSmallIntegerField("приоритет", default=0)
     status = models.CharField(
@@ -34,7 +42,8 @@ class PlannedPurchase(models.Model):
     class Meta:
         verbose_name = "план покупки"
         verbose_name_plural = "планы покупок"
-        ordering = ["priority", "-created_at"]
+        # Большее число важнее: приоритетные цели выше в списке.
+        ordering = ["-priority", "-created_at"]
         constraints = [
             models.CheckConstraint(
                 condition=Q(amount__gte=0),
@@ -44,6 +53,19 @@ class PlannedPurchase(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Держит дату покупки в согласии со статусом.
+
+        Куплено — проставляем дату (если ещё нет), любой другой статус —
+        снимаем: поле не редактируется вручную, лишних полей в формах нет.
+        """
+        if self.status == self.Status.BOUGHT:
+            if self.bought_at is None:
+                self.bought_at = timezone.localdate()
+        else:
+            self.bought_at = None
+        super().save(*args, **kwargs)
 
     @property
     def contributed(self) -> Decimal:
@@ -67,7 +89,11 @@ class PlannedPurchase(models.Model):
 
     @property
     def progress_percent(self) -> int:
-        """Прогресс накопления, % (0–100)."""
+        """Прогресс накопления, % (0–100).
+
+        Дробные проценты отбрасываются: полоса должна доходить до 100 %
+        только при полном накоплении.
+        """
         if self.amount <= 0:
             return 0
         return int(min(self.contributed * 100 / self.amount, Decimal("100")))
@@ -82,8 +108,23 @@ class PurchaseContribution(models.Model):
         related_name="contributions",
         verbose_name="цель",
     )
-    amount = models.DecimalField("сумма, ₽", max_digits=12, decimal_places=2)
-    date = models.DateField("дата", default=timezone.localdate)
+    amount = models.DecimalField(
+        "сумма, ₽",
+        max_digits=12,
+        decimal_places=2,
+        # Валидатор дублирует CheckConstraint ниже, но срабатывает в формах
+        # (включая инлайн-правку и админку), а не только на уровне базы.
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    date = models.DateField(
+        "дата",
+        default=timezone.localdate,
+        # Те же границы, что у трат: дата вне диапазона ломала бы страницы.
+        validators=[
+            MinValueValidator(date(MIN_YEAR, 1, 1)),
+            MaxValueValidator(date(MAX_YEAR, 12, 31)),
+        ],
+    )
     comment = models.CharField("комментарий", max_length=200, blank=True)
     created_at = models.DateTimeField("создано", auto_now_add=True)
 

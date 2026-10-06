@@ -33,6 +33,9 @@ def chart_payload(response, element_id: str) -> dict:
     return json.loads(match.group(1))
 
 
+FOOTER_TEXT = "Budget Tracker - личный сайт учёта расходов"
+
+
 class LoginRequiredTests(TestCase):
     """Неавторизованного пользователя middleware уводит на страницу входа."""
 
@@ -46,7 +49,7 @@ class LoginRequiredTests(TestCase):
         self.assert_redirected_to_login(self.client.get(reverse("home")))
 
     def test_every_section_requires_login(self):
-        for name in ["budget:index", "expenses:index", "purchases"]:
+        for name in ["budget:index", "expenses:index", "purchases:index"]:
             with self.subTest(name=name):
                 self.assert_redirected_to_login(self.client.get(reverse(name)))
 
@@ -113,6 +116,36 @@ class LoginFlowTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.post(reverse("logout"))
         self.assertRedirects(response, reverse("login"))
+
+
+class FooterTests(TestCase):
+    """Подпись сайта есть на каждой странице — общий каркас base.html."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+
+    def test_footer_is_on_every_page(self):
+        self.client.force_login(self.user)
+        urls = [
+            reverse("home"),
+            reverse("budget:index"),
+            reverse("budget:categories"),
+            reverse("expenses:index"),
+            reverse("reports:index"),
+            reverse("purchases:index"),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, FOOTER_TEXT)
+
+        # Страница входа доступна анонимно; при входе её перекинуло бы на главную.
+        self.client.logout()
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, FOOTER_TEXT)
 
 
 class HomeViewTests(TestCase):
@@ -182,23 +215,26 @@ class HomeViewTests(TestCase):
         self.assertContains(response, "Ноутбук")
         self.assertContains(response, "75\xa0000")  # осталось накопить
 
+    def test_home_orders_goals_by_priority(self):
+        PlannedPurchase.objects.create(
+            title="Низкий",
+            amount=Decimal("1000"),
+            priority=0,
+            status=PlannedPurchase.Status.SAVING,
+        )
+        PlannedPurchase.objects.create(
+            title="Высокий",
+            amount=Decimal("1000"),
+            priority=5,
+            status=PlannedPurchase.Status.SAVING,
+        )
+
+        content = self.client.get(reverse("home")).content.decode()
+        self.assertLess(content.index("Высокий"), content.index("Низкий"))
+
     def test_home_links_to_reports(self):
         response = self.client.get(reverse("home"))
         self.assertContains(response, reverse("reports:index"))
-
-
-class ComingSoonTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            username="owner", password="test-pass-123"
-        )
-
-    def test_section_pages_show_placeholder(self):
-        self.client.force_login(self.user)
-        response = self.client.get(reverse("purchases"))
-        self.assertContains(response, "Раздел в разработке")
-        self.assertContains(response, "Фазе 8")
 
 
 class MonthReportTests(TestCase):

@@ -8,8 +8,7 @@
 from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import DecimalField, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models import Sum
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -25,6 +24,7 @@ from budget.utils import (
 )
 from expenses.queries import transactions_for_month
 from purchases.models import PlannedPurchase
+from purchases.queries import goals_with_contributed
 
 from . import pdf, queries
 
@@ -49,16 +49,11 @@ def home(request: HttpRequest) -> HttpResponse:
     if budget_month is not None:
         free = budget_month.income - budget_month.savings_amount - spent
 
-    # Аннотация: накопления по целям считаются одним запросом, а не по запросу
-    # на каждую цель в шаблоне (см. PlannedPurchase.contributed).
+    # Аннотация `contributed_total` — один запрос на все цели вместо запроса
+    # на каждую (см. PlannedPurchase.contributed); порядок — по приоритету,
+    # как в разделе «Покупки».
     goals = list(
-        PlannedPurchase.objects.filter(status=PlannedPurchase.Status.SAVING).annotate(
-            contributed_total=Coalesce(
-                Sum("contributions__amount"),
-                Value(Decimal("0")),
-                output_field=DecimalField(max_digits=12, decimal_places=2),
-            )
-        )
+        goals_with_contributed().filter(status=PlannedPurchase.Status.SAVING)
     )
     goals_remaining = sum((goal.remaining for goal in goals), Decimal("0"))
 
@@ -130,7 +125,9 @@ def year(request: HttpRequest, year: int) -> HttpResponse:
     return render(request, "reports/year.html", context)
 
 
-def pdf_report(request: HttpRequest, year: int, month: int) -> FileResponse | HttpResponse:
+def pdf_report(
+    request: HttpRequest, year: int, month: int
+) -> FileResponse | HttpResponse:
     """PDF-отчёт за месяц: собирает файл в media и отдаёт его на скачивание.
 
     Если WeasyPrint/matplotlib не установлены (например, образ собран до

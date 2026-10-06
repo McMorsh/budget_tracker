@@ -98,7 +98,9 @@
     nameCell.textContent = data.name;
 
     const actions = document.createElement("td");
-    actions.className = "row-actions";
+    actions.className = "actions-cell";
+    const actionsBox = document.createElement("div");
+    actionsBox.className = "row-actions";
     const form = document.createElement("form");
     form.method = "post";
     form.action = data.toggle_url;
@@ -111,7 +113,8 @@
     button.className = "link-button";
     button.textContent = "В архив";
     form.append(csrf, button);
-    actions.appendChild(form);
+    actionsBox.appendChild(form);
+    actions.appendChild(actionsBox);
 
     row.append(handle, nameCell, actions);
     return row;
@@ -140,7 +143,7 @@
     nameCell.appendChild(input);
 
     const actions = document.createElement("td");
-    actions.className = "row-actions";
+    actions.className = "actions-cell";
 
     row.append(handle, nameCell, actions);
     list.appendChild(row);

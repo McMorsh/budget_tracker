@@ -4,7 +4,6 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from django.views.generic import TemplateView
 
 from reports import views as reports_views
 
@@ -18,15 +17,7 @@ urlpatterns = [
     path("budget/", include("budget.urls")),
     path("expenses/", include("expenses.urls")),
     path("reports/", include("reports.urls")),
-    # Разделы-заглушки: наполняются в своих фазах.
-    path(
-        "purchases/",
-        TemplateView.as_view(
-            template_name="coming_soon.html",
-            extra_context={"section": "Покупки", "phase": 8},
-        ),
-        name="purchases",
-    ),
+    path("purchases/", include("purchases.urls")),
     # Вход/выход: сайт однопользовательский, регистрации нет.
     # LoginView у Django уже помечен login_not_required.
     path(

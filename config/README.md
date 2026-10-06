@@ -7,7 +7,8 @@
   через `django-environ` из файла `.env` (в git не попадает);
 - `settings/dev.py` — локальная разработка (DEBUG=True, ALLOWED_HOSTS);
 - `settings/prod.py` — продакшен (WhiteNoise, secure-настройки за Caddy);
-- `urls.py` — корневой роутинг: `/admin/` и временная заглушка `/`;
+- `urls.py` — корневой роутинг: `/admin/`, обзор `/` и разделы сайта
+  (бюджет, траты, отчёты, покупки, вход);
 - `wsgi.py` / `asgi.py` — точки входа; Gunicorn использует `config.wsgi`.
 
 Имя `config` выбрано, чтобы не путать пакет настроек с предметными

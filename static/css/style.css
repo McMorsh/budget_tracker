@@ -18,6 +18,11 @@
 
 body {
   margin: 0;
+  /* Каркас на всю высоту окна, чтобы подвал был прижат к низу
+     и на коротких страницах (например, вход и пустые списки). */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -46,7 +51,7 @@ a { color: var(--accent); }
 .button-ghost:hover { background: var(--accent-soft); }
 
 /* Контент */
-.main { padding-top: 24px; padding-bottom: 48px; }
+.main { flex: 1; padding-top: 24px; padding-bottom: 48px; }
 h1 { font-size: 1.5rem; margin: 0 0 16px; }
 h2 { font-size: 1.05rem; margin: 0 0 12px; }
 .muted { color: var(--muted); }
@@ -95,12 +100,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .login-wrapper { max-width: 380px; margin: 6vh auto 0; }
 .login-form .button { width: 100%; margin-top: 4px; }
 
-/* Заглушка раздела */
-.coming-soon { max-width: 560px; }
-
 /* Таблицы */
 .table { width: 100%; border-collapse: collapse; }
-.table th, .table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.table th, .table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .table th { color: var(--muted); font-weight: 600; }
 .table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -127,6 +129,9 @@ input.money-input { width: 160px; text-align: right; }
 
 /* Таблицы в карточке и действия в строках */
 .table-card { padding: 8px 20px; }
+/* Действия — только во вложенном div внутри td.actions-cell: flex прямо
+   на td выпадает из вертикального выравнивания таблицы, и кнопки
+   уезжают вверх относительно сумм в соседних ячейках. */
 .row-actions { display: flex; align-items: center; gap: 14px; justify-content: flex-end; white-space: nowrap; }
 .row-actions form { margin: 0; }
 .link-button { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
@@ -178,6 +183,9 @@ input.name-input {
 .quick-fields .field { margin-bottom: 0; }
 .quick-fields .field-grow { flex: 1 1 220px; min-width: 180px; }
 .quick-fields .errorlist { max-width: 260px; }
+/* У input, select и button разные «натуральные» высоты: при выравнивании
+   по нижнему краю целое поле со статусом «съезжает» вниз. */
+.quick-fields input, .quick-fields select, .quick-fields .button { min-height: 42px; }
 input.comment-input { width: 100%; }
 .tx-comment { max-width: 280px; }
 /* Эллипсис — на внутреннем span: overflow на td обрезал бы и плашку ошибки */
@@ -211,3 +219,39 @@ select.select-edit { max-width: 200px; }
 .plan-progress .progress { width: 90px; height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
 .plan-progress .progress > span { display: block; height: 100%; background: var(--accent); }
 .plan-progress .progress.over > span { background: var(--danger); }
+
+/* Покупки: карточка цели, взносы и инлайн-правка строк */
+.stack > * + * { margin-top: 16px; }
+.goal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.goal-progress { font-size: 1rem; }
+.goal-progress .progress { width: 220px; height: 10px; }
+.goal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.goal-actions form { margin: 0; }
+.purchase-row .row-actions { gap: 10px; }
+.purchase-title .title-text { display: block; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.purchase-title:hover .title-text { text-decoration: underline dotted; }
+.goal-meta { display: block; font-size: .8rem; }
+/* Строка-редактор цели: поля в одну линию на всю ширину таблицы. */
+.row-editor { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 2.7em; }
+.edit-field { position: relative; display: inline-flex; }
+input.title-edit { width: 240px; min-width: 160px; }
+input.priority-edit { width: 4.5em; text-align: center; }
+select.status-edit { width: 8em; }
+.contribution-row td { position: relative; }
+.contribution-comment { max-width: 320px; }
+.danger-card { margin-top: 16px; }
+.danger-card form { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Длинные сообщения валидации суммы не должны вылезать на соседние колонки. */
+.contribution-amount .field-error {
+  left: auto;
+  right: 10px;
+  max-width: 220px;
+  white-space: normal;
+  text-align: left;
+}
+/* В строке-редакторе плашка ошибки — под своим полем. */
+.edit-field .field-error {
+  left: 0;
+  max-width: 260px;
+  white-space: normal;
+}

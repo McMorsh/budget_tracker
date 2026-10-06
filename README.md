@@ -43,7 +43,8 @@ budget_tracker/
 ├── purchases/           # планы покупок
 ├── reports/             # план/факт, графики, PDF
 ├── requirements/        # base.txt, dev.txt (django-stubs), prod.txt
-├── templates/           # HTML-шаблоны (base, обзор, бюджет, траты, вход)
+├── templates/           # HTML-шаблоны (base, обзор, бюджет, траты,
+│                        #   покупки, отчёты, вход)
 ├── static/              # css / js / изображения
 ├── locale/              # переводы
 ├── media/               # генерируемые файлы (в git только README папки)

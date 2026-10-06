@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static money %}
+
+{% block title %}{{ goal.title }} — покупки{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>{{ goal.title }}</h1>
+  <a class="button button-ghost" href="{% url 'purchases:index' %}">← К списку</a>
+</div>
+
+<div id="goal-body" class="stack"
+     data-status-url="{% url 'purchases:purchase_status' goal.pk %}">
+  <section class="card" id="goal-summary">
+    <div class="goal-head">
+      <span class="badge {% if goal.status == 'bought' %}badge-ok{% else %}badge-warn{% endif %}">{{ goal.get_status_display }}</span>
+      <span class="plan-progress goal-progress">
+        <span class="progress" aria-hidden="true"><span style="width: {{ goal.progress_percent }}%"></span></span>
+        накоплено {{ goal.progress_percent }} %
+      </span>
+    </div>
+    <dl class="stats">
+      <div class="stat"><dt>Стоимость</dt><dd>{{ goal.amount|rubles:"2" }}</dd></div>
+      <div class="stat"><dt>Накоплено</dt><dd>{{ goal.contributed|rubles:"2" }}</dd></div>
+      <div class="stat"><dt>Осталось накопить</dt><dd>{{ goal.remaining|rubles:"2" }}</dd></div>
+      {% if goal.bought_at %}
+        <div class="stat"><dt>Куплено</dt><dd>{{ goal.bought_at|date:"d.m.Y" }}</dd></div>
+      {% endif %}
+    </dl>
+    <div class="goal-actions">
+      {% if goal.status == "bought" %}
+        <button type="button" class="button button-ghost js-status" data-status="saving">Вернуть в копилку</button>
+      {% else %}
+        <button type="button" class="button js-status" data-status="bought">Куплено</button>
+      {% endif %}
+    </div>
+  </section>
+
+  <form method="post" class="card quick-add" action="{% url 'purchases:detail' goal.pk %}">
+    {% csrf_token %}
+    <h2>Добавить взнос</h2>
+    <div class="quick-fields">
+      <div class="field">
+        <label for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
+        {{ form.amount }}
+        {{ form.amount.errors }}
+      </div>
+      <div class="field">
+        <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+        {{ form.date }}
+        {{ form.date.errors }}
+      </div>
+      <div class="field field-grow">
+        <label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
+        {{ form.comment }}
+        {{ form.comment.errors }}
+      </div>
+      <div class="field">
+        <button type="submit" class="button">Добавить</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="card table-card" id="contribution-card">
+    <h2>Взносы</h2>
+    <table class="table" id="contribution-table">
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Комментарий</th>
+          <th class="num">Сумма</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in contributions %}
+          <tr class="contribution-row"
+              data-date="{{ item.date|date:'Y-m-d' }}"
+              data-amount="{{ item.amount|floatformat:'2u' }}"
+              data-comment="{{ item.comment }}"
+              data-update-url="{% url 'purchases:contribution_update' item.pk %}">
+            <td class="contribution-date">{{ item.date|date:"d.m.Y" }}</td>
+            <td class="contribution-comment muted" title="{{ item.comment }}">
+              <span class="comment-text">{{ item.comment|default:"—" }}</span>
+            </td>
+            <td class="num contribution-amount">{{ item.amount|rubles:"2" }}</td>
+            <td class="actions-cell">
+              <div class="row-actions">
+                <button type="button" class="link-button contribution-edit">Изменить</button>
+                <form method="post" action="{% url 'purchases:contribution_delete' item.pk %}"
+                      data-confirm="Удалить взнос?">
+                  {% csrf_token %}
+                  <button type="submit" class="link-button link-danger">Удалить</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="muted">Взносов ещё нет — добавьте первый.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      {% if contributions %}
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="2">Итого взносов</td>
+            <td class="num">{{ contributions_total|rubles:"2" }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<div class="card danger-card">
+  <form method="post" action="{% url 'purchases:purchase_delete' goal.pk %}"
+        data-confirm="Удалить цель «{{ goal.title }}» вместе со всеми взносами?">
+    {% csrf_token %}
+    <button type="submit" class="link-button link-danger">Удалить цель</button>
+    <span class="muted">Все взносы по цели тоже удалятся.</span>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/purchases.js' %}"></script>
+{% endblock %}

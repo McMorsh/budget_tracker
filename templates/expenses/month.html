@@ -77,13 +77,15 @@
           </td>
           <td class="tx-comment muted" title="{{ item.comment }}"><span class="comment-text">{{ item.comment|default:"—" }}</span></td>
           <td class="num tx-amount">{{ item.amount|rubles:"2" }}</td>
-          <td class="row-actions">
-            <button type="button" class="link-button tx-edit">Изменить</button>
-            <form method="post" action="{% url 'expenses:transaction_delete' item.pk %}"
-                  data-confirm="Удалить трату?">
-              {% csrf_token %}
-              <button type="submit" class="link-button link-danger">Удалить</button>
-            </form>
+          <td class="actions-cell">
+            <div class="row-actions">
+              <button type="button" class="link-button tx-edit">Изменить</button>
+              <form method="post" action="{% url 'expenses:transaction_delete' item.pk %}"
+                    data-confirm="Удалить трату?">
+                {% csrf_token %}
+                <button type="submit" class="link-button link-danger">Удалить</button>
+              </form>
+            </div>
           </td>
         </tr>
       {% empty %}

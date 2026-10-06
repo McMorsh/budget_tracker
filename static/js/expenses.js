@@ -267,7 +267,7 @@
     const cell = event.target.closest(".tx-row td");
     if (
       !cell ||
-      cell.classList.contains("row-actions") ||
+      cell.classList.contains("actions-cell") ||
       cell.querySelector("input, select")
     ) {
       return;
