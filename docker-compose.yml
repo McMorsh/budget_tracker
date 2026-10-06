@@ -1,0 +1,55 @@
+# Локальная разработка: web (Django runserver) + postgres:18.
+# Продакшен-обвязка (Gunicorn, Caddy, бэкапы) живёт в отдельном репозитории sites-infra.
+#
+# Запуск (Docker):        docker compose up --build -d
+# Запуск (Podman):        podman compose up --build -d   (или podman-compose up --build -d)
+name: budget-tracker
+
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    # Миграции применяем при старте, чтобы "поднять и посмотреть" было одной командой.
+    # Для продакшена это делается отдельным шагом (см. PLAN.md, Фаза 9).
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
+    restart: unless-stopped
+    volumes:
+      # :z — SELinux-перемаркировка для Fedora/Podman; для Docker без SELinux суффикс игнорируется
+      - .:/app:z
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      # Внутри compose БД доступна по имени сервиса db,
+      # поэтому переопределяем DATABASE_URL из .env (там хост localhost — для venv).
+      DATABASE_URL: postgres://${POSTGRES_USER:-budget}:${POSTGRES_PASSWORD:-budget}@db:5432/${POSTGRES_DB:-budget}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-budget}
+      POSTGRES_USER: ${POSTGRES_USER:-budget}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+    volumes:
+      # ВАЖНО: у образа postgres:18 PGDATA лежит в /var/lib/postgresql/18/docker,
+      # а VOLUME объявлен как /var/lib/postgresql. Монтировать в старый .../data нельзя —
+      # данные будут теряться при пересоздании контейнера.
+      - pgdata:/var/lib/postgresql
+    ports:
+      # Только для отладки с хоста (и запуска через venv). При конфликте с локальным Postgres — убрать.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # TCP-проверка: pg_isready по unix-сокету может отрапортовать раньше реальной готовности
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-budget} -d ${POSTGRES_DB:-budget}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

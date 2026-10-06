@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+#
+.venv/
+venv/
+.uv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+*.log
+logs/
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+
+# media
+/media/*
+!/media/README.md
+
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# privates
+backups/
+*.sql
+*.dump
+*.sql.gz
+docker-compose.override.yml
+docker-compose.prod.yml
+Caddyfile
+# локальная шпаргалка разработчика
+/help.md
+
+# IDE и ОС
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+PLAN.md

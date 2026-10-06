@@ -1,0 +1,4 @@
+# Общие зависимости (все окружения)
+Django>=5.2.8,<5.3
+django-environ>=0.12
+psycopg[binary]>=3.2

@@ -1,0 +1,12 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "exclude": [".venv", "**/node_modules"],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": "none",
+  "reportArgumentType": "none",
+  "reportConstantRedefinition": "none",
+  "reportImplicitStringConcatenation": "none",
+  "reportUnusedCallResult": "none"
+}

@@ -1,0 +1,5 @@
+-r base.txt
+
+# Продакшен (используется в prod-таргете Dockerfile, Фаза 9)
+gunicorn>=23.0
+whitenoise>=6.8

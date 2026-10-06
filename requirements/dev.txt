@@ -1,0 +1,4 @@
+-r base.txt
+
+# Для разработки: типы Django для IDE и проверки (Pyright)
+django-stubs>=5.2

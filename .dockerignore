@@ -1,0 +1,28 @@
+# Секреты — ни в каком виде не должны попадать в образ
+.env
+.env.*
+
+# Git и служебные файлы
+.git
+.gitignore
+.dockerignore
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Данные и артефакты
+media/
+staticfiles/
+backups/
+*.log
+
+# Документация и IDE
+*.md
+.idea/
+.vscode/
