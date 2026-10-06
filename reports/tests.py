@@ -24,7 +24,7 @@ class LoginRequiredTests(TestCase):
         self.assert_redirected_to_login(self.client.get(reverse("home")))
 
     def test_every_section_requires_login(self):
-        for name in ["budget", "expenses", "purchases"]:
+        for name in ["budget:index", "expenses", "purchases"]:
             with self.subTest(name=name):
                 self.assert_redirected_to_login(self.client.get(reverse(name)))
 
@@ -54,14 +54,14 @@ class LoginFlowTests(TestCase):
 
     def test_valid_credentials_respect_next(self):
         response = self.client.post(
-            reverse("login") + "?next=" + reverse("budget"),
+            reverse("login") + "?next=" + reverse("budget:index"),
             {
                 "username": "owner",
                 "password": "test-pass-123",
-                "next": reverse("budget"),
+                "next": reverse("budget:index"),
             },
         )
-        self.assertRedirects(response, reverse("budget"))
+        self.assertRedirects(response, reverse("budget:index"))
 
     def test_invalid_credentials_show_error(self):
         response = self.client.post(

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Категории{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Категории</h1>
+  <button type="button" id="add-category" class="button">Добавить категорию</button>
+</div>
+
+<p class="muted">
+  Перетаскивайте строки за ⠿, чтобы изменить порядок; двойной клик по названию —
+  переименовать.
+  <span id="order-status" aria-live="polite"></span>
+</p>
+
+<div class="card table-card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Название</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="category-list"
+           data-reorder-url="{% url 'budget:category_reorder' %}"
+           data-create-url="{% url 'budget:category_create' %}"
+           data-rename-url="{% url 'budget:category_rename' %}">
+      {% for category in active_categories %}
+        <tr data-id="{{ category.pk }}">
+          <td class="drag-handle" title="Перетащите, чтобы изменить порядок">⠿</td>
+          <td class="category-name" title="Двойной клик — переименовать">{{ category.name }}</td>
+          <td class="row-actions">
+            <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="link-button">В архив</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not active_categories %}
+    <p class="muted empty-note">Категорий пока нет — добавьте первую.</p>
+  {% endif %}
+</div>
+
+{% if archived_categories %}
+  <h2 class="section-title">Архив</h2>
+  <p class="muted">
+    Архивные категории не предлагаются для новых трат, история по ним сохраняется.
+  </p>
+  <div class="card table-card">
+    <table class="table">
+      <tbody>
+        {% for category in archived_categories %}
+          <tr class="archived-row">
+            <td>{{ category.name }}</td>
+            <td class="row-actions">
+              <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="link-button">Вернуть</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vendor/sortable.min.js' %}"></script>
+  <script src="{% static 'js/categories.js' %}"></script>
+{% endblock %}

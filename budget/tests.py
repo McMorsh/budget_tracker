@@ -1,8 +1,11 @@
 """Тесты моделей бюджета."""
+import json
 from decimal import Decimal
 
+from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 
 from .models import Allocation, BudgetMonth, Category
 from .templatetags.money import rubles
@@ -93,3 +96,161 @@ class MoneyFilterTests(TestCase):
     def test_rubles_handles_garbage(self):
         self.assertEqual(rubles("abc"), "—")
         self.assertEqual(rubles(Decimal("1"), "x"), "—")
+
+
+class CategoryViewsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def post_json(self, url, payload):
+        return self.client.post(
+            url, data=json.dumps(payload), content_type="application/json"
+        )
+
+    def test_section_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("budget:categories"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_list_shows_active_and_archived(self):
+        Category.objects.create(name="Продукты", position=1)
+        Category.objects.create(name="Старое", position=2, is_active=False)
+
+        response = self.client.get(reverse("budget:categories"))
+        self.assertContains(response, "Продукты")
+        self.assertContains(response, "Старое")
+        self.assertContains(response, "Архив")
+        self.assertContains(response, "drag-handle")
+        self.assertContains(response, 'id="add-category"')
+
+    def test_create_appends_to_the_end(self):
+        Category.objects.create(name="Продукты", position=0)
+        Category.objects.create(name="Транспорт", position=1)
+
+        response = self.post_json(
+            reverse("budget:category_create"), {"name": "Здоровье"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        new_category = Category.objects.get(name="Здоровье")
+        self.assertEqual(new_category.position, 2)
+        self.assertEqual(payload["id"], new_category.pk)
+        self.assertIn(
+            f"/budget/categories/{new_category.pk}/toggle/", payload["toggle_url"]
+        )
+
+    def test_create_first_category_gets_zero_position(self):
+        self.post_json(reverse("budget:category_create"), {"name": "Здоровье"})
+
+        new_category = Category.objects.get(name="Здоровье")
+        self.assertEqual(new_category.position, 0)
+
+    def test_create_rejects_duplicate_name(self):
+        Category.objects.create(name="Продукты", position=1)
+
+        response = self.post_json(
+            reverse("budget:category_create"), {"name": "Продукты"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("уже существует", response.json()["error"])
+        self.assertEqual(Category.objects.count(), 1)
+
+    def test_create_rejects_empty_name(self):
+        response = self.post_json(
+            reverse("budget:category_create"), {"name": "   "}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Category.objects.count(), 0)
+
+    def test_create_rejects_get(self):
+        response = self.client.get(reverse("budget:category_create"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_rename_changes_name_only(self):
+        category = Category.objects.create(name="Продукты", position=3)
+
+        response = self.post_json(
+            reverse("budget:category_rename"),
+            {"id": category.pk, "name": "Еда"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        category.refresh_from_db()
+        self.assertEqual(category.name, "Еда")
+        self.assertEqual(category.position, 3)
+
+    def test_rename_rejects_duplicate_name(self):
+        Category.objects.create(name="Продукты", position=0)
+        category = Category.objects.create(name="Транспорт", position=1)
+
+        response = self.post_json(
+            reverse("budget:category_rename"),
+            {"id": category.pk, "name": "Продукты"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("уже существует", response.json()["error"])
+
+    def test_rename_unknown_category(self):
+        response = self.post_json(
+            reverse("budget:category_rename"), {"id": 999, "name": "Еда"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_rename_rejects_bad_payload(self):
+        response = self.post_json(reverse("budget:category_rename"), {"name": "Еда"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_toggle_archives_and_restores(self):
+        category = Category.objects.create(name="Продукты")
+
+        self.client.post(reverse("budget:category_toggle", args=[category.pk]))
+        category.refresh_from_db()
+        self.assertFalse(category.is_active)
+
+        self.client.post(reverse("budget:category_toggle", args=[category.pk]))
+        category.refresh_from_db()
+        self.assertTrue(category.is_active)
+
+    def test_toggle_rejects_get(self):
+        category = Category.objects.create(name="Продукты")
+        response = self.client.get(
+            reverse("budget:category_toggle", args=[category.pk])
+        )
+        self.assertEqual(response.status_code, 405)
+
+    def test_reorder_updates_positions(self):
+        first = Category.objects.create(name="Первая", position=0)
+        second = Category.objects.create(name="Вторая", position=1)
+
+        response = self.client.post(
+            reverse("budget:category_reorder"),
+            data=json.dumps({"ids": [second.pk, first.pk]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(second.position, 0)
+        self.assertEqual(first.position, 1)
+
+    def test_reorder_rejects_bad_payload(self):
+        response = self.client.post(
+            reverse("budget:category_reorder"),
+            data="не json",
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_reorder_rejects_get(self):
+        response = self.client.get(reverse("budget:category_reorder"))
+        self.assertEqual(response.status_code, 405)

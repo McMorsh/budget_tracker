@@ -3,7 +3,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 from django.views.generic import TemplateView
 
 from reports import views as reports_views
@@ -15,15 +15,8 @@ admin.site.index_title = "Управление"
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", reports_views.home, name="home"),
+    path("budget/", include("budget.urls")),
     # Разделы-заглушки: наполняются в своих фазах.
-    path(
-        "budget/",
-        TemplateView.as_view(
-            template_name="coming_soon.html",
-            extra_context={"section": "Бюджет", "phase": 3},
-        ),
-        name="budget",
-    ),
     path(
         "expenses/",
         TemplateView.as_view(
