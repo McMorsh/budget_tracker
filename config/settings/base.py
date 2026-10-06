@@ -25,6 +25,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # приложения проекта
+    "budget.apps.BudgetConfig",
+    "expenses.apps.ExpensesConfig",
+    "purchases.apps.PurchasesConfig",
 ]
 
 MIDDLEWARE = [
