@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+  <section class="card">
+    <h1>Вход</h1>
+    <p class="muted">Сайт личный: вход только для владельца.</p>
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% elif form.errors %}
+      <div class="alert alert-error">Проверьте заполнение полей ниже.</div>
+    {% endif %}
+
+    <form method="post" class="login-form">
+      {% csrf_token %}
+      <div class="field">
+        <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+        {{ form.username }}
+        {{ form.username.errors }}
+      </div>
+      <div class="field">
+        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+        {{ form.password.errors }}
+      </div>
+      {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
+      <button type="submit" class="button">Войти</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

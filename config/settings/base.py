@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "budget.apps.BudgetConfig",
     "expenses.apps.ExpensesConfig",
     "purchases.apps.PurchasesConfig",
+    "reports.apps.ReportsConfig",
 ]
 
 MIDDLEWARE = [
@@ -38,6 +39,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Все страницы — только для владельца (Django ≥ 5.1); регистрации нет
+    "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -71,6 +74,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Вход только для владельца: регистрации нет
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "login"
+
+# Интерфейс только на русском (LocaleMiddleware не переключает язык)
+LANGUAGES = [("ru", "Русский")]
+
+# Каталог переводов проекта (заготовка под будущие .po/.mo)
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"

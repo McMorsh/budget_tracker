@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<h1>Обзор</h1>
+
+<div class="cards">
+  <section class="card">
+    <h2>Текущий месяц</h2>
+    {% if budget_month %}
+      <p class="muted">{{ budget_month.title }}</p>
+      <dl class="stats">
+        <div class="stat"><dt>Доход</dt><dd>{{ budget_month.income|rubles }}</dd></div>
+        <div class="stat"><dt>Отложить по плану</dt><dd>{{ budget_month.savings_amount|rubles }}</dd></div>
+        <div class="stat"><dt>Потрачено</dt><dd>{{ spent|rubles }}</dd></div>
+        <div class="stat">
+          <dt>Свободно от дохода</dt>
+          <dd{% if free < 0 %} class="negative"{% endif %}>{{ free|rubles }}</dd>
+        </div>
+      </dl>
+      <p class="muted">План распределения: {{ budget_month.planned_total_percent|floatformat:"-2" }} % из 100 %.</p>
+    {% else %}
+      <p>Бюджет на этот месяц ещё не заполнен.</p>
+      <p class="muted">Задайте доход и распределение в админке: раздел «Бюджетные месяцы».</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Цели покупок</h2>
+    {% if goals %}
+      <ul class="goal-list">
+        {% for goal in goals %}
+          <li>
+            <span>{{ goal.title }}</span>
+            <span class="muted">осталось {{ goal.remaining|rubles }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="muted">Всего осталось накопить: {{ goals_remaining|rubles }}.</p>
+    {% else %}
+      <p>Активных целей нет.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from .models import Allocation, BudgetMonth, Category
+from .templatetags.money import rubles
 
 class BudgetMonthTests(TestCase):
     def test_duplicate_month_is_rejected(self):
@@ -69,3 +70,26 @@ class AllocationTests(TestCase):
             )
         self.month.savings_percent = 45
         self.assertEqual(self.month.planned_total_percent, 100)
+
+
+class MoneyFilterTests(TestCase):
+    def test_rubles_formats_with_grouping(self):
+        self.assertEqual(rubles(Decimal("85000")), "85\xa0000 ₽")
+
+    def test_rubles_with_two_decimals(self):
+        self.assertEqual(rubles(Decimal("12750.5"), "2"), "12\xa0750,50 ₽")
+
+    def test_rubles_rounds_half_up_by_default(self):
+        # 5000,50 → 5 001 (половина вверх), как в budget.models.money
+        self.assertEqual(rubles(Decimal("5000.50")), "5\xa0001 ₽")
+
+    def test_rubles_handles_negative(self):
+        self.assertEqual(rubles(Decimal("-7750")), "-7\xa0750 ₽")
+
+    def test_rubles_handles_none_and_empty(self):
+        self.assertEqual(rubles(None), "—")
+        self.assertEqual(rubles(""), "—")
+
+    def test_rubles_handles_garbage(self):
+        self.assertEqual(rubles("abc"), "—")
+        self.assertEqual(rubles(Decimal("1"), "x"), "—")

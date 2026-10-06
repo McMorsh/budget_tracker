@@ -1,0 +1,199 @@
+/* Budget Tracker — базовые стили */
+
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --danger: #b91c1c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+
+.container { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+/* Шапка */
+.site-header { background: var(--card); border-bottom: 1px solid var(--border); }
+.header-inner { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; min-height: 60px; padding-top: 8px; padding-bottom: 8px; }
+.brand { font-weight: 700; font-size: 1.05rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.main-nav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.main-nav a:hover { background: var(--bg); color: var(--text); }
+.main-nav a.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+.user-box { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.user-box form { margin: 0; }
+
+/* Кнопки */
+.button { display: inline-block; padding: 8px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; text-decoration: none; }
+.button:hover { background: var(--accent-dark); }
+.button-ghost { background: transparent; color: var(--accent); }
+.button-ghost:hover { background: var(--accent-soft); }
+
+/* Контент */
+.main { padding-top: 24px; padding-bottom: 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 16px; }
+h2 { font-size: 1.05rem; margin: 0 0 12px; }
+.muted { color: var(--muted); }
+.negative { color: var(--danger); }
+
+/* Карточки */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+
+/* Статистика */
+.stats .stat { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.stats .stat:last-child { border-bottom: 0; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Списки целей */
+.goal-list { list-style: none; margin: 0; padding: 0; }
+.goal-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.goal-list li:last-child { border-bottom: 0; }
+
+/* Сообщения */
+.messages { list-style: none; margin: 16px 0 0; padding: 0; }
+.alert { padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+.alert-success { background: #ecfdf5; color: #065f46; }
+.alert-error { background: #fef2f2; color: #991b1b; }
+.alert-warning { background: #fffbeb; color: #92400e; }
+.alert-info { background: #eff6ff; color: #1e40af; }
+.alert-debug { background: #f3f4f6; color: #374151; }
+
+/* Формы */
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field label { font-weight: 600; font-size: .9rem; }
+input[type="text"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--card);
+  color: var(--text);
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.errorlist { color: var(--danger); margin: 0; padding: 0; list-style: none; font-size: .9rem; }
+
+/* Вход */
+.login-wrapper { max-width: 380px; margin: 6vh auto 0; }
+.login-form .button { width: 100%; margin-top: 4px; }
+
+/* Заглушка раздела */
+.coming-soon { max-width: 560px; }
+
+/* Таблицы */
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.table th { color: var(--muted); font-weight: 600; }
+.table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Подвал */
+.site-footer { border-top: 1px solid var(--border); padding: 16px 0; margin-top: 32px; font-size: .875rem; }
+
+/* Экран распределения месяца */
+.month-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.month-actions form { margin: 0; }
+input.cell-input { width: 96px; text-align: right; }
+input.money-input { width: 160px; text-align: right; }
+.plan-table .total-row td { font-weight: 600; border-top: 2px solid var(--border); }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.badge-ok { background: #ecfdf5; color: #065f46; }
+.badge-warn { background: #fffbeb; color: #92400e; }
+.balance-line { margin: 12px 0 0; font-weight: 600; }
+
+/* Заголовок страницы с кнопкой */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin: 0; }
+
+/* Таблицы в карточке и действия в строках */
+.table-card { padding: 8px 20px; }
+.row-actions { display: flex; align-items: center; gap: 14px; justify-content: flex-end; white-space: nowrap; }
+.row-actions form { margin: 0; }
+.link-button { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.link-button:hover { color: var(--accent-dark); }
+.archived-row { color: var(--muted); }
+.section-title { margin-top: 28px; }
+
+/* Формы */
+.form-wrapper { max-width: 480px; }
+.form-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+/* Перетаскивание категорий (SortableJS) */
+.drag-handle { cursor: grab; color: var(--muted); text-align: center; width: 28px; user-select: none; }
+.drag-handle:active { cursor: grabbing; }
+tr.sortable-ghost { opacity: .4; }
+tr.sortable-chosen { background: var(--accent-soft); }
+
+/* Инлайн-правка названий: высота строки не меняется */
+.category-name { position: relative; }
+.category-name:hover { text-decoration: underline dotted; cursor: text; }
+input.name-input {
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  height: 1.5em;            /* = line-height текста в строке — таблица не «прыгает» */
+  padding: 0 6px;
+  border-radius: 6px;
+  display: block;           /* без inline-«хвоста» и без роста строки */
+}
+.field-error {
+  position: absolute;
+  left: 10px;
+  top: calc(100% - 6px);
+  z-index: 10;
+  background: var(--card);
+  color: var(--danger);
+  font-size: .85rem;
+  line-height: 1.3;
+  padding: 2px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .12);
+}
+
+/* Экран трат: быстрый ввод и инлайн-правка строк */
+.quick-add { padding: 16px 20px; }
+.quick-fields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.quick-fields .field { margin-bottom: 0; }
+.quick-fields .field-grow { flex: 1 1 220px; min-width: 180px; }
+.quick-fields .errorlist { max-width: 260px; }
+input.comment-input { width: 100%; }
+.tx-comment { max-width: 280px; }
+/* Эллипсис — на внутреннем span: overflow на td обрезал бы и плашку ошибки */
+.comment-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-row td { position: relative; }
+input.cell-edit, select.cell-edit {
+  display: block;           /* как у .name-input: строка не «прыгает» по высоте */
+  min-width: 0;
+  height: 1.5em;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+input.date-edit { width: 132px; }
+input.comment-edit { width: 100%; min-width: 120px; }
+input.money-edit { width: 104px; text-align: right; }
+select.select-edit { max-width: 200px; }
+.link-danger { color: var(--danger); }
+.link-button.link-danger:hover { color: #7f1d1d; }
+.tx-amount .field-error {
+  left: auto;
+  right: 10px;
+  max-width: 220px;
+  white-space: normal;
+  text-align: left;
+}

@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Budget Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="{% url 'home' %}">Budget Tracker</a>
+      {% if user.is_authenticated %}
+        <nav class="main-nav">
+          <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}class="active"{% endif %}>Главная</a>
+          <a href="{% url 'expenses' %}" {% if request.resolver_match.url_name == 'expenses' %}class="active"{% endif %}>Траты</a>
+          <a href="{% url 'budget' %}" {% if request.resolver_match.url_name == 'budget' %}class="active"{% endif %}>Бюджет</a>
+          <a href="{% url 'purchases' %}" {% if request.resolver_match.url_name == 'purchases' %}class="active"{% endif %}>Покупки</a>
+          {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}">Админка</a>
+          {% endif %}
+        </nav>
+        <div class="user-box">
+          <span class="muted">{{ user.get_username }}</span>
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="button button-ghost">Выйти</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="container main">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="alert alert-{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container muted">Budget Tracker - личный сайт учёта расходов</div>
+  </footer>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
