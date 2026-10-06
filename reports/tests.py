@@ -24,7 +24,7 @@ class LoginRequiredTests(TestCase):
         self.assert_redirected_to_login(self.client.get(reverse("home")))
 
     def test_every_section_requires_login(self):
-        for name in ["budget:index", "expenses", "purchases"]:
+        for name in ["budget:index", "expenses:index", "purchases"]:
             with self.subTest(name=name):
                 self.assert_redirected_to_login(self.client.get(reverse(name)))
 
@@ -160,8 +160,6 @@ class ComingSoonTests(TestCase):
 
     def test_section_pages_show_placeholder(self):
         self.client.force_login(self.user)
-        for name, phase in (("expenses", 5), ("purchases", 8)):
-            with self.subTest(name=name):
-                response = self.client.get(reverse(name))
-                self.assertContains(response, "Раздел в разработке")
-                self.assertContains(response, f"Фазе {phase}")
+        response = self.client.get(reverse("purchases"))
+        self.assertContains(response, "Раздел в разработке")
+        self.assertContains(response, "Фазе 8")

@@ -16,15 +16,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", reports_views.home, name="home"),
     path("budget/", include("budget.urls")),
+    path("expenses/", include("expenses.urls")),
     # Разделы-заглушки: наполняются в своих фазах.
-    path(
-        "expenses/",
-        TemplateView.as_view(
-            template_name="coming_soon.html",
-            extra_context={"section": "Траты", "phase": 5},
-        ),
-        name="expenses",
-    ),
     path(
         "purchases/",
         TemplateView.as_view(

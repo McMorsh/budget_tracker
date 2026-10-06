@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static money %}
+
+{% block title %}Траты — {{ month_title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Траты — {{ month_title }}</h1>
+  <div class="month-actions">
+    {% if can_prev %}
+      <a class="button button-ghost" href="{% url 'expenses:month' prev_year prev_month %}" title="{{ prev_title }}">←</a>
+    {% endif %}
+    {% if can_next %}
+      <a class="button button-ghost" href="{% url 'expenses:month' next_year next_month %}" title="{{ next_title }}">→</a>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" class="card quick-add" id="quick-add"
+      action="{% url 'expenses:month' year month %}">
+  {% csrf_token %}
+  <div class="quick-fields">
+    <div class="field">
+      <label for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
+      {{ form.amount }}
+      {{ form.amount.errors }}
+    </div>
+    <div class="field">
+      <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+      {{ form.category }}
+      {{ form.category.errors }}
+    </div>
+    <div class="field">
+      <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+      {{ form.date }}
+      {{ form.date.errors }}
+    </div>
+    <div class="field field-grow">
+      <label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
+      {{ form.comment }}
+      {{ form.comment.errors }}
+    </div>
+    <div class="field">
+      <button type="submit" class="button">Добавить</button>
+    </div>
+  </div>
+</form>
+
+<p class="muted">
+  Месяц траты определяется её датой. Двойной клик по строке — быстрая правка.
+</p>
+
+<div class="card table-card">
+  <table class="table" id="tx-table"
+         data-view="{{ year }}-{{ month|stringformat:'02d' }}">
+    <thead>
+      <tr>
+        <th>Дата</th>
+        <th>Категория</th>
+        <th>Комментарий</th>
+        <th class="num">Сумма</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr class="tx-row"
+            data-date="{{ item.date|date:'Y-m-d' }}"
+            data-category-id="{{ item.category.pk }}"
+            data-category-name="{{ item.category.name }}"
+            data-amount="{{ item.amount|floatformat:'2u' }}"
+            data-comment="{{ item.comment }}"
+            data-update-url="{% url 'expenses:transaction_update' item.pk %}">
+          <td class="tx-date">{{ item.date|date:"d.m.Y" }}</td>
+          <td class="tx-category">
+            {{ item.category.name }}{% if not item.category.is_active %} <span class="muted">(в архиве)</span>{% endif %}
+          </td>
+          <td class="tx-comment muted" title="{{ item.comment }}"><span class="comment-text">{{ item.comment|default:"—" }}</span></td>
+          <td class="num tx-amount">{{ item.amount|rubles:"2" }}</td>
+          <td class="row-actions">
+            <button type="button" class="link-button tx-edit">Изменить</button>
+            <form method="post" action="{% url 'expenses:transaction_delete' item.pk %}"
+                  data-confirm="Удалить трату?">
+              {% csrf_token %}
+              <button type="submit" class="link-button link-danger">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="muted">За этот месяц трат ещё нет — добавьте первую.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="2">Итого за месяц</td>
+        <td class="muted">трат: <span id="month-count">{{ count }}</span></td>
+        <td class="num" id="month-total">{{ total|rubles:"2" }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/expenses.js' %}"></script>
+{% endblock %}
