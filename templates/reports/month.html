@@ -14,6 +14,7 @@
       <a class="button button-ghost" href="{% url 'reports:month' next_year next_month %}" title="{{ next_title }}">→</a>
     {% endif %}
     <a class="button button-ghost" href="{% url 'reports:year' report.year %}?month={{ report.month }}">Итоги {{ report.year }} года</a>
+    <a class="button" href="{% url 'reports:pdf' report.year report.month %}">Скачать PDF</a>
   </div>
 </div>
 

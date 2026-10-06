@@ -2,3 +2,7 @@
 Django>=5.2.8,<5.3
 django-environ>=0.12
 psycopg[binary]>=3.2
+
+# PDF-отчёты за месяц и за год (Фаза 7): вёрстка PDF и графики в них
+weasyprint>=70,<71
+matplotlib>=3.11,<4

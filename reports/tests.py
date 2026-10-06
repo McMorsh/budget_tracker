@@ -1,17 +1,23 @@
 """Тесты страницы входа, обзорной страницы и отчётов."""
 import json
 import re
+import shutil
+import tempfile
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
+from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from budget.models import Allocation, BudgetMonth, Category
 from expenses.models import Transaction
 from purchases.models import PlannedPurchase, PurchaseContribution
+
+from . import pdf as pdf_module
 
 
 def chart_payload(response, element_id: str) -> dict:
@@ -306,6 +312,10 @@ class MonthReportTests(TestCase):
             response, reverse("reports:year", args=[2026]) + "?month=9"
         )
 
+    def test_month_report_has_pdf_link(self):
+        response = self.client.get(self.month_url())
+        self.assertContains(response, reverse("reports:pdf", args=[2026, 9]))
+
     def test_month_report_invalid_month_is_404(self):
         for month in [0, 13]:
             with self.subTest(month=month):
@@ -463,6 +473,10 @@ class YearReportTests(TestCase):
         response = self.client.get(self.year_url())
         self.assertContains(response, reverse("reports:month", args=[2026, 3]))
 
+    def test_year_report_has_pdf_link(self):
+        response = self.client.get(self.year_url())
+        self.assertContains(response, reverse("reports:pdf_year", args=[2026]))
+
     def test_year_report_back_link_returns_to_origin_month(self):
         response = self.client.get(self.year_url() + "?month=5")
         self.assertContains(response, "К месячному отчёту")
@@ -578,3 +592,194 @@ class YearReportTests(TestCase):
         self.assertEqual(structure["labels"], ["Продукты", "Такси"])
         self.assertEqual(structure["fact"], [1000.0, 300.0])
 
+
+class PdfMediaMixin(TestCase):
+    """Общая часть PDF-тестов: вход и временный MEDIA_ROOT."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+        cls.category = Category.objects.create(name="Продукты", position=0)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        # PDF собирается по-настоящему (WeasyPrint + matplotlib), но в
+        # временный MEDIA_ROOT, чтобы не мусорить в media проекта.
+        self.media = tempfile.mkdtemp(prefix="bt-media-")
+        settings_override = override_settings(MEDIA_ROOT=self.media)
+        settings_override.enable()
+        self.addCleanup(settings_override.disable)
+        self.addCleanup(shutil.rmtree, self.media, True)
+
+
+class MonthReportPdfTests(PdfMediaMixin):
+    """PDF-отчёт за месяц (Фаза 7)."""
+
+    def pdf_url(self, year: int = 2026, month: int = 9) -> str:
+        return reverse("reports:pdf", args=[year, month])
+
+    def test_pdf_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 302)
+
+    def test_pdf_out_of_range_is_404(self):
+        for year, month in [(1800, 1), (2026, 0), (2026, 13)]:
+            with self.subTest(year=year, month=month):
+                response = self.client.get(
+                    reverse("reports:pdf", args=[year, month])
+                )
+                self.assertEqual(response.status_code, 404)
+
+    def test_pdf_generates_file_and_downloads(self):
+        budget_month = BudgetMonth.objects.create(
+            year=2026, month=9, income=Decimal("85000"), savings_percent=15
+        )
+        Allocation.objects.create(
+            budget_month=budget_month, category=self.category, percent=40
+        )
+        Transaction.objects.create(
+            category=self.category, amount=Decimal("1000"), date=date(2026, 9, 5)
+        )
+
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment", response["Content-Disposition"])
+
+        content = b"".join(getattr(response, "streaming_content"))
+        self.assertTrue(content.startswith(b"%PDF-"))
+
+        path = Path(self.media) / "reports" / "2026-09.pdf"
+        self.assertTrue(path.exists())
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+    def test_pdf_for_month_without_data(self):
+        # Месяц без бюджета и трат: графиков нет, но PDF собирается.
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        path = Path(self.media) / "reports" / "2026-09.pdf"
+        self.assertTrue(path.exists())
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+    def test_pdf_repeat_download_overwrites_file(self):
+        self.client.get(self.pdf_url())
+        path = Path(self.media) / "reports" / "2026-09.pdf"
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+        # Атомарная запись не оставляет временных файлов.
+        self.assertFalse(path.with_suffix(".pdf.part").exists())
+
+    def test_pdf_content_disposition(self):
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(
+            response["Content-Disposition"],
+            'attachment; filename="budget-report-2026-09.pdf"',
+        )
+
+    def test_pdf_without_dependencies_shows_hint(self):
+        # Образ, собранный без WeasyPrint/matplotlib: 500 не нужен — даём подсказку.
+        with mock.patch.object(
+            pdf_module, "build_report_pdf", side_effect=ImportError("No matplotlib")
+        ):
+            response = self.client.get(self.pdf_url(), follow=True)
+        self.assertRedirects(response, reverse("reports:month", args=[2026, 9]))
+        self.assertContains(response, "Пересоберите образ")
+
+    def test_pdf_helpers(self):
+        self.assertEqual(
+            pdf_module.report_path(2026, 9),
+            Path(self.media) / "reports" / "2026-09.pdf",
+        )
+        self.assertEqual(
+            pdf_module.report_path(2026),
+            Path(self.media) / "reports" / "2026.pdf",
+        )
+        self.assertEqual(pdf_module._thousands(34000.0), "34\xa0000")
+        self.assertEqual(pdf_module._percent_label(3.5), "")
+        self.assertEqual(pdf_module._percent_label(12.0), "12%")
+        self.assertTrue(
+            pdf_module._png_data_uri(b"png").startswith("data:image/png;base64,")
+        )
+
+
+class YearReportPdfTests(PdfMediaMixin):
+    """PDF-отчёт за год (Фаза 7)."""
+
+    def pdf_url(self, year: int = 2026) -> str:
+        return reverse("reports:pdf_year", args=[year])
+
+    def test_pdf_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 302)
+
+    def test_pdf_out_of_range_is_404(self):
+        for year in [1899, 2101]:
+            with self.subTest(year=year):
+                response = self.client.get(reverse("reports:pdf_year", args=[year]))
+                self.assertEqual(response.status_code, 404)
+
+    def test_pdf_generates_file_and_downloads(self):
+        budget_month = BudgetMonth.objects.create(
+            year=2026, month=1, income=Decimal("80000"), savings_percent=10
+        )
+        Allocation.objects.create(
+            budget_month=budget_month, category=self.category, percent=40
+        )
+        Transaction.objects.create(
+            category=self.category, amount=Decimal("1000"), date=date(2026, 1, 5)
+        )
+
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertEqual(
+            response["Content-Disposition"],
+            'attachment; filename="budget-report-2026.pdf"',
+        )
+
+        content = b"".join(getattr(response, "streaming_content"))
+        self.assertTrue(content.startswith(b"%PDF-"))
+
+        path = Path(self.media) / "reports" / "2026.pdf"
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+    def test_pdf_for_year_without_data(self):
+        # Год без данных: графиков нет, но PDF собирается.
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        path = Path(self.media) / "reports" / "2026.pdf"
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+    def test_pdf_for_year_with_expenses_without_budget(self):
+        # Траты без бюджетных месяцев: таблица месяцев есть, бюджета нет.
+        Transaction.objects.create(
+            category=self.category, amount=Decimal("500"), date=date(2026, 5, 5)
+        )
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        path = Path(self.media) / "reports" / "2026.pdf"
+        self.assertTrue(path.read_bytes().startswith(b"%PDF-"))
+
+    def test_pdf_repeat_download_leaves_no_temp_files(self):
+        self.client.get(self.pdf_url())
+        response = self.client.get(self.pdf_url())
+        self.assertEqual(response.status_code, 200)
+        report_dir = Path(self.media) / "reports"
+        self.assertEqual(
+            sorted(item.name for item in report_dir.iterdir()), ["2026.pdf"]
+        )
+
+    def test_pdf_without_dependencies_shows_hint(self):
+        with mock.patch.object(
+            pdf_module, "build_year_pdf", side_effect=ImportError("No matplotlib")
+        ):
+            response = self.client.get(self.pdf_url(), follow=True)
+        self.assertRedirects(response, reverse("reports:year", args=[2026]))
+        self.assertContains(response, "Пересоберите образ")

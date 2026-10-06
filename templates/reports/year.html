@@ -14,6 +14,7 @@
     {% if can_next %}
       <a class="button button-ghost" href="{% url 'reports:year' next_year %}?month={{ back_month }}" title="{{ next_year }} год">→</a>
     {% endif %}
+    <a class="button" href="{% url 'reports:pdf_year' report.year %}">Скачать PDF</a>
   </div>
 </div>
 

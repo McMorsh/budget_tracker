@@ -1,0 +1,113 @@
+{% load money %}<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Отчёт за {{ report.title }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm 20mm;
+      @bottom-center {
+        content: "Budget Tracker · отчёт за {{ report.title }}";
+        color: #6b7280;
+        font-size: 8pt;
+      }
+    }
+    body { font-family: "DejaVu Sans", "Noto Sans", sans-serif; color: #1f2937; font-size: 9.5pt; line-height: 1.45; margin: 0; }
+    h1 { font-size: 16pt; margin: 0 0 1mm; }
+    h2 { font-size: 11pt; margin: 6mm 0 2mm; break-after: avoid; }
+    .muted { color: #6b7280; }
+    .head { border-bottom: 1px solid #e5e7eb; padding-bottom: 3mm; margin-bottom: 4mm; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1.6mm 2mm; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    th { color: #6b7280; font-weight: 600; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.total td { font-weight: 600; border-top: 1.2pt solid #9ca3af; }
+    .negative { color: #b91c1c; }
+    .positive { color: #047857; }
+    .summary td { border: 0; padding: 0.8mm 0; }
+    .summary .label { color: #6b7280; width: 70%; }
+    .summary .value { text-align: right; font-weight: 600; }
+    table.charts { table-layout: fixed; }
+    table.charts td { border: 0; padding: 0 3mm 0 0; vertical-align: top; text-align: center; }
+    table.charts .bar { width: 62%; }
+    table.charts .bar.wide { width: 100%; padding-right: 0; }
+    table.charts .pie { width: 38%; padding-right: 0; }
+    /* Пирог отдельной строкой, когда столбцы занимают всю ширину;
+       высота ограничена, чтобы графики остались на одной странице. */
+    table.charts .pie-wide { width: 100%; padding: 4mm 0 0; }
+    table.charts .pie-wide img { max-height: 70mm; }
+    .charts img { max-width: 100%; max-height: 85mm; }
+    .caption { color: #6b7280; font-size: 8pt; text-align: center; margin-top: 1mm; }
+    .empty { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <h1>Отчёт за {{ report.title }}</h1>
+    <div class="muted">Budget Tracker — личный учёт расходов. Сформировано {{ generated_at|date:"d.m.Y" }}.</div>
+  </div>
+
+  <h2>Сводка</h2>
+  <table class="summary">
+    <tr><td class="label">Доход</td><td class="value">{{ report.income|rubles }}</td></tr>
+    <tr><td class="label">Отложить по плану</td><td class="value">{{ report.savings|rubles }}</td></tr>
+    <tr><td class="label">Бюджет по категориям</td><td class="value">{{ report.planned|rubles }}</td></tr>
+    <tr><td class="label">Траты</td><td class="value">{{ report.spent|rubles }}</td></tr>
+    <tr><td class="label">Свободно от дохода</td><td class="value">{{ report.free|rubles }}</td></tr>
+  </table>
+  {% if report.budget_month and report.planned_percent != 100 %}
+    <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % — бюджет не сходится.</p>
+  {% endif %}
+
+  {% if report.rows %}
+    <h2>Бюджет и траты по категориям</h2>
+    <table class="charts">
+      <tr>
+        <td class="bar{% if stacked or not pie_chart %} wide{% endif %}"><img src="{{ bar_chart }}" alt="Бюджет и траты по категориям"></td>
+        {% if pie_chart and not stacked %}
+          <td class="pie"><img src="{{ pie_chart }}" alt="Структура трат"><div class="caption">Структура трат</div></td>
+        {% endif %}
+      </tr>
+      {% if pie_chart and stacked %}
+        <tr>
+          <td class="pie-wide"><img src="{{ pie_chart }}" alt="Структура трат"><div class="caption">Структура трат</div></td>
+        </tr>
+      {% endif %}
+    </table>
+
+    <h2>Категории</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Категория</th>
+          <th class="num">Бюджет, ₽</th>
+          <th class="num">Траты, ₽</th>
+          <th class="num">Остаток, ₽</th>
+          <th class="num">Исполнение, %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+          <tr>
+            <td>{{ row.category.name }}{% if not row.category.is_active %} (в архиве){% endif %}</td>
+            <td class="num">{{ row.planned|rubles:"2" }}</td>
+            <td class="num">{{ row.fact|rubles:"2" }}</td>
+            <td class="num{% if row.remaining < 0 %} negative{% elif row.remaining > 0 %} positive{% endif %}">{% if row.remaining > 0 %}+{% endif %}{{ row.remaining|rubles:"2" }}</td>
+            <td class="num">{% if row.has_plan %}{{ row.used_percent }} %{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+        <tr class="total">
+          <td>Итого</td>
+          <td class="num">{{ report.planned|rubles:"2" }}</td>
+          <td class="num">{{ report.spent|rubles:"2" }}</td>
+          <td class="num{% if report.remaining < 0 %} negative{% elif report.remaining > 0 %} positive{% endif %}">{% if report.remaining > 0 %}+{% endif %}{{ report.remaining|rubles:"2" }}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">За этот месяц нет ни бюджета, ни трат.</p>
+  {% endif %}
+</body>
+</html>

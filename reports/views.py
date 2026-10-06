@@ -1,15 +1,17 @@
-"""Представления аналитики: обзор и отчёты.
+"""Представления аналитики: обзор, отчёты и PDF.
 
 `home` — обзорная страница (текущий месяц и цели покупок), остальные —
 отчёты за месяц и за год; данные готовит `reports/queries.py`, графики
-рисует `static/js/reports.js` по json_script-блокам.
+рисует `static/js/reports.js` по json_script-блокам, PDF собирает
+`reports/pdf.py`.
 """
 from decimal import Decimal
 
+from django.contrib import messages
 from django.db.models import DecimalField, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.http import FileResponse, HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from budget.models import BudgetMonth
@@ -24,7 +26,12 @@ from budget.utils import (
 from expenses.queries import transactions_for_month
 from purchases.models import PlannedPurchase
 
-from . import queries
+from . import pdf, queries
+
+PDF_HINT = (
+    "PDF-отчёт недоступен: не установлены зависимости (WeasyPrint, "
+    "matplotlib). Пересоберите образ: podman-compose up --build -d."
+)
 
 
 def home(request: HttpRequest) -> HttpResponse:
@@ -121,6 +128,40 @@ def year(request: HttpRequest, year: int) -> HttpResponse:
         },
     }
     return render(request, "reports/year.html", context)
+
+
+def pdf_report(request: HttpRequest, year: int, month: int) -> FileResponse | HttpResponse:
+    """PDF-отчёт за месяц: собирает файл в media и отдаёт его на скачивание.
+
+    Если WeasyPrint/matplotlib не установлены (например, образ собран до
+    добавления зависимостей), вместо 500 показываем подсказку.
+    """
+    check_month(year, month)
+    try:
+        path = pdf.build_report_pdf(year, month)
+    except ImportError:
+        messages.error(request, PDF_HINT)
+        return redirect("reports:month", year=year, month=month)
+    return FileResponse(
+        path.open("rb"),
+        as_attachment=True,
+        filename=f"budget-report-{year}-{month:02d}.pdf",
+    )
+
+
+def pdf_year_report(request: HttpRequest, year: int) -> FileResponse | HttpResponse:
+    """PDF-отчёт за год: собирает файл в media и отдаёт его на скачивание."""
+    check_year(year)
+    try:
+        path = pdf.build_year_pdf(year)
+    except ImportError:
+        messages.error(request, PDF_HINT)
+        return redirect("reports:year", year=year)
+    return FileResponse(
+        path.open("rb"),
+        as_attachment=True,
+        filename=f"budget-report-{year}.pdf",
+    )
 
 
 def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
