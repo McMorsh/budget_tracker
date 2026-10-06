@@ -107,8 +107,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 /* Экран распределения месяца */
 .month-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .month-actions form { margin: 0; }
-input.cell-input { width: 96px; text-align: right; }
+/* Цифры по центру — не жмутся к стрелкам-счётчику у правого края поля. */
+input.cell-input { width: 96px; text-align: center; }
 input.money-input { width: 160px; text-align: right; }
+/* Колонка «Доля, %»: значения и заголовок по центру, как и цифры в полях. */
+.table th.pct, .table td.pct { text-align: center; font-variant-numeric: tabular-nums; }
 .plan-table .total-row td { font-weight: 600; border-top: 2px solid var(--border); }
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .badge-ok { background: #ecfdf5; color: #065f46; }

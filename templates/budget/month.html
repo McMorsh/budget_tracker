@@ -16,7 +16,10 @@
     {% if copy_source %}
       <form method="post" action="{% url 'budget:month_copy' year month %}">
         {% csrf_token %}
-        <button type="submit" class="button">Скопировать из {{ copy_source.title }}</button>
+        <button type="submit" class="button"
+                title="Копирует доход, «отложить» и доли категорий из предыдущего месяца">
+          Скопировать распределение процентов из «{{ copy_source.title }}»
+        </button>
       </form>
     {% endif %}
   </div>
@@ -42,7 +45,7 @@
       <thead>
         <tr>
           <th>Категория</th>
-          <th class="num">Доля, %</th>
+          <th class="pct">Доля, %</th>
           <th class="num">План, ₽</th>
         </tr>
       </thead>
@@ -53,7 +56,7 @@
               {{ row.category.name }}
               {% if row.archived %}<span class="muted">(в архиве)</span>{% endif %}
             </td>
-            <td class="num">{{ row.field }} {{ row.field.errors }}</td>
+            <td class="pct">{{ row.field }} {{ row.field.errors }}</td>
             <td class="num" data-amount>{{ row.amount|rubles:"2" }}</td>
           </tr>
         {% empty %}
@@ -66,14 +69,14 @@
         {% endfor %}
         <tr>
           <td>Отложить</td>
-          <td class="num">{{ form.savings_percent }} {{ form.savings_percent.errors }}</td>
+          <td class="pct">{{ form.savings_percent }} {{ form.savings_percent.errors }}</td>
           <td class="num" data-amount>{{ savings_amount|rubles:"2" }}</td>
         </tr>
       </tbody>
       <tfoot>
         <tr class="total-row">
           <td>Итого</td>
-          <td class="num">
+          <td class="pct">
             <span class="badge {% if balanced %}badge-ok{% else %}badge-warn{% endif %}">
               Σ <span id="sum-percent">{{ sum_percent }}</span> %
             </span>
