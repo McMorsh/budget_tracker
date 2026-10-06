@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static money %}
+
+{% block title %}Отчёт — {{ report.title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Отчёт — {{ report.title }}</h1>
+  <div class="month-actions">
+    {% if can_prev %}
+      <a class="button button-ghost" href="{% url 'reports:month' prev_year prev_month %}" title="{{ prev_title }}">←</a>
+    {% endif %}
+    {% if can_next %}
+      <a class="button button-ghost" href="{% url 'reports:month' next_year next_month %}" title="{{ next_title }}">→</a>
+    {% endif %}
+    <a class="button button-ghost" href="{% url 'reports:year' report.year %}?month={{ report.month }}">Итоги {{ report.year }} года</a>
+  </div>
+</div>
+
+<div class="cards">
+  <section class="card">
+    <h2>Сводка</h2>
+    <dl class="stats">
+      <div class="stat"><dt>Доход</dt><dd>{{ report.income|rubles }}</dd></div>
+      <div class="stat"><dt>Отложить по плану</dt><dd>{{ report.savings|rubles }}</dd></div>
+      <div class="stat"><dt>Бюджет</dt><dd>{{ report.planned|rubles }}</dd></div>
+      <div class="stat"><dt>Траты</dt><dd>{{ report.spent|rubles }}</dd></div>
+      <div class="stat">
+        <dt>Свободно от дохода</dt>
+        {% if report.free is None %}
+          <dd>—</dd>
+        {% else %}
+          <dd{% if report.free < 0 %} class="negative"{% endif %}>{{ report.free|rubles }}</dd>
+        {% endif %}
+      </div>
+    </dl>
+    {% if report.budget_month and report.planned_percent != 100 %}
+      <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % — бюджет не сходится.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Бюджет и траты по категориям</h2>
+    {% if report.rows %}
+      <div class="chart-box"><canvas id="plan-fact-chart" role="img" aria-label="Бюджет и траты по категориям за {{ report.title }}"></canvas></div>
+    {% else %}
+      <p class="muted">За этот месяц данных ещё нет.</p>
+    {% endif %}
+  </section>
+</div>
+
+<div class="card table-card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Категория</th>
+        <th class="num">Бюджет, ₽</th>
+        <th class="num">Траты, ₽</th>
+        <th class="num">Остаток, ₽</th>
+        <th class="num">Исполнение, %</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in report.rows %}
+        <tr>
+          <td>
+            {{ row.category.name }}{% if not row.category.is_active %} <span class="muted">(в архиве)</span>{% endif %}
+          </td>
+          <td class="num">{{ row.planned|rubles:"2" }}</td>
+          <td class="num">{{ row.fact|rubles:"2" }}</td>
+          <td class="num{% if row.remaining < 0 %} negative{% elif row.remaining > 0 %} positive{% endif %}">{% if row.remaining > 0 %}+{% endif %}{{ row.remaining|rubles:"2" }}</td>
+          <td class="num">
+            {% if row.has_plan %}
+              <span class="plan-progress">
+                <span class="progress{% if row.used_percent > 100 %} over{% endif %}" aria-hidden="true">
+                  <span style="width: {{ row.bar_percent }}%"></span>
+                </span>
+                {{ row.used_percent }} %
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="muted">Пока нет ни бюджета, ни трат за этот месяц.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td>Итого</td>
+        <td class="num">{{ report.planned|rubles:"2" }}</td>
+        <td class="num">{{ report.spent|rubles:"2" }}</td>
+        <td class="num{% if report.remaining < 0 %} negative{% elif report.remaining > 0 %} positive{% endif %}">{% if report.remaining > 0 %}+{% endif %}{{ report.remaining|rubles:"2" }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+{{ chart|json_script:"plan-fact-data" }}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vendor/chart.umd.min.js' %}"></script>
+  <script src="{% static 'js/reports.js' %}"></script>
+{% endblock %}

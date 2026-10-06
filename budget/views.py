@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 from budget.utils import MAX_YEAR, MIN_YEAR, check_month, month_title, shift_month
 
 from .forms import CategoryForm, MonthPlanForm
-from .models import Allocation, BudgetMonth, Category, money
+from .models import Allocation, BudgetMonth, Category, money, planned_amount
 
 FULL_PERCENT = 100
 
@@ -135,13 +135,13 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
     savings_percent = _as_int(form["savings_percent"].value())
 
     sum_percent = savings_percent
-    total_amount = money(income * savings_percent / 100)
+    total_amount = planned_amount(income, savings_percent)
     savings_amount = total_amount
     rows = []
     for category in categories:
         field = form[f"percent_{category.pk}"]
         percent = _as_int(field.value())
-        amount = money(income * percent / 100)
+        amount = planned_amount(income, percent)
         rows.append(
             {
                 "category": category,

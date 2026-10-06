@@ -27,11 +27,33 @@ def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
 
 
 def month_title(year: int, month: int) -> str:
-    """Название месяца по-русски, например «октябрь 2026»."""
+    """Название месяца по-русски, например «Октябрь 2026»."""
     return date_format(date(year, month, 1), "F Y")
 
 
+def check_year(year: int) -> None:
+    """Проверяет границы года.
+
+    Args:
+        year: Год в диапазоне 1900–2100.
+
+    Raises:
+        Http404: Если год выходит за допустимые границы.
+    """
+    if not MIN_YEAR <= year <= MAX_YEAR:
+        raise Http404("Года с таким номером не бывает")
+
+
 def check_month(year: int, month: int) -> None:
-    """Проверяет границы экрана месяца; вне диапазона — Http404."""
-    if not 1 <= month <= 12 or not MIN_YEAR <= year <= MAX_YEAR:
+    """Проверяет границы экрана месяца.
+
+    Args:
+        year: Год в диапазоне 1900–2100.
+        month: Номер месяца (1–12).
+
+    Raises:
+        Http404: Если месяц или год выходит за допустимые границы.
+    """
+    check_year(year)
+    if not 1 <= month <= 12:
         raise Http404("Месяца с таким номером не бывает")

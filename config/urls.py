@@ -17,6 +17,7 @@ urlpatterns = [
     path("", reports_views.home, name="home"),
     path("budget/", include("budget.urls")),
     path("expenses/", include("expenses.urls")),
+    path("reports/", include("reports.urls")),
     # Разделы-заглушки: наполняются в своих фазах.
     path(
         "purchases/",

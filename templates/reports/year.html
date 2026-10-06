@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static money %}
+
+{% block title %}Итоги {{ report.year }} года{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Итоги {{ report.year }} года</h1>
+  <div class="month-actions">
+    <a class="button button-ghost" href="{% url 'reports:month' report.year back_month %}">← К месячному отчёту</a>
+    {% if can_prev %}
+      <a class="button button-ghost" href="{% url 'reports:year' prev_year %}?month={{ back_month }}" title="{{ prev_year }} год">←</a>
+    {% endif %}
+    {% if can_next %}
+      <a class="button button-ghost" href="{% url 'reports:year' next_year %}?month={{ back_month }}" title="{{ next_year }} год">→</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if report.months %}
+  <div class="cards">
+    <section class="card">
+      <h2>Бюджет и траты по месяцам</h2>
+      <div class="chart-box"><canvas id="year-months-chart" role="img" aria-label="Бюджет и траты по месяцам за {{ report.year }} год"></canvas></div>
+    </section>
+    <section class="card">
+      <h2>Структура трат</h2>
+      {% if report.spent > 0 %}
+        <div class="chart-box"><canvas id="year-structure-chart" role="img" aria-label="Структура трат по категориям за {{ report.year }} год"></canvas></div>
+      {% else %}
+        <p class="muted">Трат за год пока нет.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="card table-card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Месяц</th>
+          <th class="num">Доход, ₽</th>
+          <th class="num">Бюджет, ₽</th>
+          <th class="num">Траты, ₽</th>
+          <th class="num">Остаток, ₽</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for month in report.months %}
+          <tr>
+            <td><a href="{% url 'reports:month' month.year month.month %}">{{ month.title }}</a></td>
+            <td class="num">{{ month.income|rubles }}</td>
+            <td class="num">{{ month.planned|rubles }}</td>
+            <td class="num">{{ month.spent|rubles }}</td>
+            <td class="num{% if month.remaining < 0 %} negative{% elif month.remaining > 0 %} positive{% endif %}">{% if month.remaining > 0 %}+{% endif %}{{ month.remaining|rubles }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td>Итого</td>
+          <td class="num">{{ report.income|rubles }}</td>
+          <td class="num">{{ report.planned|rubles }}</td>
+          <td class="num">{{ report.spent|rubles }}</td>
+          <td class="num{% if report.remaining < 0 %} negative{% elif report.remaining > 0 %} positive{% endif %}">{% if report.remaining > 0 %}+{% endif %}{{ report.remaining|rubles }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <h2 class="section-title">По категориям за год</h2>
+  <div class="card table-card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Категория</th>
+          <th class="num">Бюджет, ₽</th>
+          <th class="num">Траты, ₽</th>
+          <th class="num">Остаток, ₽</th>
+          <th class="num">Исполнение, %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+          <tr>
+            <td>
+              {{ row.category.name }}{% if not row.category.is_active %} <span class="muted">(в архиве)</span>{% endif %}
+            </td>
+            <td class="num">{{ row.planned|rubles:"2" }}</td>
+            <td class="num">{{ row.fact|rubles:"2" }}</td>
+            <td class="num{% if row.remaining < 0 %} negative{% elif row.remaining > 0 %} positive{% endif %}">{% if row.remaining > 0 %}+{% endif %}{{ row.remaining|rubles:"2" }}</td>
+            <td class="num">
+              {% if row.has_plan %}
+                <span class="plan-progress">
+                  <span class="progress{% if row.used_percent > 100 %} over{% endif %}" aria-hidden="true">
+                    <span style="width: {{ row.bar_percent }}%"></span>
+                  </span>
+                  {{ row.used_percent }} %
+                </span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="muted">Бюджета и трат по категориям за год нет.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td>Итого</td>
+          <td class="num">{{ report.planned|rubles:"2" }}</td>
+          <td class="num">{{ report.spent|rubles:"2" }}</td>
+          <td class="num{% if report.remaining < 0 %} negative{% elif report.remaining > 0 %} positive{% endif %}">{% if report.remaining > 0 %}+{% endif %}{{ report.remaining|rubles:"2" }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  {{ month_chart|json_script:"year-months-data" }}
+  {{ structure_chart|json_script:"year-structure-data" }}
+{% else %}
+  <p class="muted">За {{ report.year }} год данных пока нет.</p>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vendor/chart.umd.min.js' %}"></script>
+  <script src="{% static 'js/reports.js' %}"></script>
+{% endblock %}

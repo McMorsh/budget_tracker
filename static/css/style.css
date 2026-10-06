@@ -9,7 +9,9 @@
   --accent: #2563eb;
   --accent-dark: #1d4ed8;
   --accent-soft: #dbeafe;
+  --chart-plan: #93c5fd;
   --danger: #b91c1c;
+  --ok: #047857;
 }
 
 * { box-sizing: border-box; }
@@ -49,6 +51,7 @@ h1 { font-size: 1.5rem; margin: 0 0 16px; }
 h2 { font-size: 1.05rem; margin: 0 0 12px; }
 .muted { color: var(--muted); }
 .negative { color: var(--danger); }
+.positive { color: var(--ok); }
 
 /* Карточки */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
@@ -112,7 +115,7 @@ input.cell-input { width: 96px; text-align: center; }
 input.money-input { width: 160px; text-align: right; }
 /* Колонка «Доля, %»: значения и заголовок по центру, как и цифры в полях. */
 .table th.pct, .table td.pct { text-align: center; font-variant-numeric: tabular-nums; }
-.plan-table .total-row td { font-weight: 600; border-top: 2px solid var(--border); }
+.table .total-row td { font-weight: 600; border-top: 2px solid var(--border); }
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .badge-ok { background: #ecfdf5; color: #065f46; }
 .badge-warn { background: #fffbeb; color: #92400e; }
@@ -200,3 +203,11 @@ select.select-edit { max-width: 200px; }
   white-space: normal;
   text-align: left;
 }
+
+/* Отчёты: графики и полоса использования плана */
+.chart-box { position: relative; height: 300px; }
+.chart-box canvas { display: block; max-width: 100%; }
+.plan-progress { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; white-space: nowrap; }
+.plan-progress .progress { width: 90px; height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+.plan-progress .progress > span { display: block; height: 100%; background: var(--accent); }
+.plan-progress .progress.over > span { background: var(--danger); }

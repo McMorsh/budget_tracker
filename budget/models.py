@@ -20,6 +20,11 @@ def money(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def planned_amount(income: Decimal, percent: int) -> Decimal:
+    """Плановая сумма: доход × доля, округление до копеек (ROUND_HALF_UP)."""
+    return money(income * percent / 100)
+
+
 class Category(models.Model):
     """Категория трат (архивируется, а не удаляется)."""
 
@@ -83,13 +88,13 @@ class BudgetMonth(models.Model):
 
     @property
     def title(self) -> str:
-        """Название месяца по-русски, например «октябрь 2026»."""
+        """Название месяца по-русски, например «Октябрь 2026»."""
         return date_format(date(self.year, self.month, 1), "F Y")
 
     @property
     def savings_amount(self) -> Decimal:
         """План «отложить» в рублях."""
-        return money(self.income * self.savings_percent / 100)
+        return planned_amount(self.income, self.savings_percent)
 
     @property
     def allocations_total_percent(self) -> int:
@@ -146,4 +151,4 @@ class Allocation(models.Model):
     @property
     def amount(self) -> Decimal:
         """План в рублях: доход месяца × доля."""
-        return money(self.budget_month.income * self.percent / 100)
+        return planned_amount(self.budget_month.income, self.percent)
