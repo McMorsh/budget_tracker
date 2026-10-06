@@ -6,9 +6,11 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Allocation, BudgetMonth, Category
 from .templatetags.money import rubles
+
 
 class BudgetMonthTests(TestCase):
     def test_duplicate_month_is_rejected(self):
@@ -254,3 +256,215 @@ class CategoryViewsTests(TestCase):
     def test_reorder_rejects_get(self):
         response = self.client.get(reverse("budget:category_reorder"))
         self.assertEqual(response.status_code, 405)
+
+
+class MonthPlanTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.today = timezone.localdate()
+        self.category = Category.objects.create(name="Продукты", position=0)
+
+    def previous_month(self):
+        year, month = self.today.year, self.today.month - 1
+        if month < 1:
+            year, month = year - 1, 12
+        return year, month
+
+    def test_index_renders_current_month(self):
+        response = self.client.get(reverse("budget:index"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Доход")
+        self.assertContains(response, "ещё не заполнен")
+        self.assertContains(response, "Отложить")
+
+    def test_month_url_requires_login(self):
+        self.client.logout()
+        response = self.client.get(
+            reverse("budget:month", args=[self.today.year, self.today.month])
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_invalid_month_number_is_404(self):
+        response = self.client.get(reverse("budget:month", args=[2026, 13]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_out_of_range_year_is_404(self):
+        # Крайние годы увели бы ссылки «назад/вперёд» за пределы дат Python — 500.
+        for year, month in [(0, 1), (1899, 12), (2101, 1)]:
+            with self.subTest(year=year):
+                response = self.client.get(
+                    reverse("budget:month", args=[year, month])
+                )
+                self.assertEqual(response.status_code, 404)
+
+    def test_year_boundaries_render(self):
+        for year, month in [(1900, 1), (2100, 12)]:
+            with self.subTest(year=year):
+                response = self.client.get(
+                    reverse("budget:month", args=[year, month])
+                )
+                self.assertEqual(response.status_code, 200)
+
+    def test_save_creates_month_and_allocations(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "85000",
+                "savings_percent": "15",
+                f"percent_{self.category.pk}": "20",
+            },
+        )
+        self.assertRedirects(response, reverse("budget:index"))
+
+        month = BudgetMonth.objects.get(year=self.today.year, month=self.today.month)
+        self.assertEqual(month.income, Decimal("85000"))
+        self.assertEqual(month.savings_percent, 15)
+        allocation = Allocation.objects.get(budget_month=month)
+        self.assertEqual(allocation.category, self.category)
+        self.assertEqual(allocation.percent, 20)
+
+    def test_zero_percent_removes_allocation(self):
+        month = BudgetMonth.objects.create(
+            year=self.today.year, month=self.today.month, income=Decimal("1000")
+        )
+        Allocation.objects.create(
+            budget_month=month, category=self.category, percent=20
+        )
+
+        self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "1000",
+                "savings_percent": "0",
+                f"percent_{self.category.pk}": "",
+            },
+        )
+
+        self.assertFalse(Allocation.objects.exists())
+
+    def test_percent_above_hundred_is_rejected(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "1000",
+                "savings_percent": "0",
+                f"percent_{self.category.pk}": "150",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="errorlist"')
+        self.assertFalse(BudgetMonth.objects.exists())
+
+    def test_fractional_percent_is_rejected(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "1000",
+                "savings_percent": "0",
+                f"percent_{self.category.pk}": "19.4",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="errorlist"')
+        self.assertFalse(BudgetMonth.objects.exists())
+
+    def test_unbalanced_plan_warns_but_saves(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "10000",
+                "savings_percent": "0",
+                f"percent_{self.category.pk}": "50",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "не хватает 50")
+        self.assertTrue(BudgetMonth.objects.exists())
+
+    def test_overspent_plan_warns_about_excess(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "10000",
+                "savings_percent": "20",
+                f"percent_{self.category.pk}": "100",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "перерасход")
+        month = BudgetMonth.objects.get()
+        self.assertEqual(month.planned_total_percent, 120)
+
+    def test_balanced_plan_has_no_warning(self):
+        response = self.client.post(
+            reverse("budget:index"),
+            {
+                "income": "10000",
+                "savings_percent": "20",
+                f"percent_{self.category.pk}": "80",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "План месяца сохранён")
+        self.assertNotContains(response, "не хватает")
+
+    def test_copy_from_previous_month(self):
+        prev_year, prev_month = self.previous_month()
+        source = BudgetMonth.objects.create(
+            year=prev_year,
+            month=prev_month,
+            income=Decimal("70000"),
+            savings_percent=10,
+        )
+        Allocation.objects.create(
+            budget_month=source, category=self.category, percent=25
+        )
+        # в текущем месяце уже есть свой план — он заменится
+        target = BudgetMonth.objects.create(
+            year=self.today.year, month=self.today.month, income=Decimal("1")
+        )
+        other = Category.objects.create(name="Прочее", position=1)
+        Allocation.objects.create(
+            budget_month=target, category=other, percent=5
+        )
+
+        response = self.client.post(
+            reverse("budget:month_copy", args=[self.today.year, self.today.month]),
+            follow=True,
+        )
+
+        self.assertContains(response, "Скопировано из")
+        target.refresh_from_db()
+        self.assertEqual(target.income, Decimal("70000"))
+        self.assertEqual(target.savings_percent, 10)
+        allocations = Allocation.objects.filter(budget_month=target)
+        self.assertEqual(allocations.count(), 1)
+        allocation = allocations.get()
+        self.assertEqual(allocation.category, self.category)
+        self.assertEqual(allocation.percent, 25)
+
+    def test_copy_without_previous_month_warns(self):
+        response = self.client.post(
+            reverse("budget:month_copy", args=[self.today.year, self.today.month]),
+            follow=True,
+        )
+        self.assertContains(response, "копировать нечего")
+
+    def test_archived_category_with_allocation_is_still_shown(self):
+        month = BudgetMonth.objects.create(
+            year=self.today.year, month=self.today.month, income=Decimal("1000")
+        )
+        archived = Category.objects.create(name="Старое", position=1, is_active=False)
+        Allocation.objects.create(
+            budget_month=month, category=archived, percent=10
+        )
+
+        response = self.client.get(reverse("budget:index"))
+        self.assertContains(response, "Старое")
+        self.assertContains(response, "(в архиве)")
