@@ -80,6 +80,36 @@
       });
   }
 
+  /* --- предупреждение о перерасходе плана (приходит после правки) --- */
+
+  function clearWarning() {
+    document
+      .querySelectorAll(".messages li[data-js-warning]")
+      .forEach(function (item) {
+        item.remove();
+      });
+  }
+
+  function showWarning(message) {
+    let list = document.querySelector(".messages");
+    if (!list) {
+      const main = document.querySelector("main.main");
+      if (!main) {
+        return;
+      }
+      list = document.createElement("ul");
+      list.className = "messages";
+      main.insertBefore(list, main.firstChild);
+    }
+    // Прошлое предупреждение от JS заменяем, чтобы не копились.
+    clearWarning();
+    const item = document.createElement("li");
+    item.className = "alert alert-warning";
+    item.dataset.jsWarning = "1";
+    item.textContent = message;
+    list.appendChild(item);
+  }
+
   /* --- инлайн-правка --- */
 
   let editing = null;
@@ -224,6 +254,12 @@
             // Дата ушла в другой месяц — показываем его.
             window.location.href = data.month_url;
             return;
+          }
+          if (data.warning) {
+            showWarning(data.warning);
+          } else {
+            // Перерасхода больше нет — убираем прошлое предупреждение.
+            clearWarning();
           }
           refreshTable();
         })

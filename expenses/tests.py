@@ -12,7 +12,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from budget.models import Category
+from budget.models import Allocation, BudgetMonth, Category
 from budget.utils import month_title, shift_month
 
 from .models import Transaction
@@ -337,6 +337,132 @@ class TransactionViewsTests(TestCase):
         response = self.client.post(self.month_url(), {})
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Transaction.objects.exists())
+
+    # --- предупреждение о перерасходе плана ---
+
+    def make_plan(self, percent: int = 10) -> None:
+        """Бюджет на сентябрь 2026 и доля категории (при 10 % план 1 000 ₽)."""
+        month = BudgetMonth.objects.create(
+            year=2026, month=9, income=Decimal("10000")
+        )
+        Allocation.objects.create(
+            budget_month=month, category=self.category, percent=percent
+        )
+
+    def add_transaction(self, amount: str):
+        return self.client.post(
+            self.month_url(),
+            {
+                "date": "2026-09-10",
+                "category": self.category.pk,
+                "amount": amount,
+                "comment": "",
+            },
+            follow=True,
+        )
+
+    def test_add_warns_about_category_overrun(self):
+        self.make_plan()  # план 1 000 ₽
+        response = self.add_transaction("1200")
+        self.assertContains(response, "Трата добавлена")
+        self.assertContains(response, "Перерасход по категории «Продукты»")
+        # Предупреждаем, но сохраняем.
+        self.assertTrue(Transaction.objects.exists())
+
+    def test_add_has_no_warning_when_fact_equals_plan(self):
+        self.make_plan()  # план 1 000 ₽
+        response = self.add_transaction("1000")
+        self.assertNotContains(response, "Перерасход")
+
+    def test_add_ignores_transactions_of_other_months(self):
+        self.make_plan()  # план сентября 1 000 ₽
+        Transaction.objects.create(
+            category=self.category, amount=Decimal("600"), date=date(2026, 9, 30)
+        )
+        # Октябрь без бюджета: сентябрьские траты в его факт не попадают.
+        response = self.client.post(
+            self.month_url(2026, 10),
+            {
+                "date": "2026-10-01",
+                "category": self.category.pk,
+                "amount": "1100",
+                "comment": "",
+            },
+            follow=True,
+        )
+        self.assertNotContains(response, "Перерасход")
+
+    def test_add_has_no_warning_within_plan(self):
+        self.make_plan()
+        response = self.add_transaction("800")
+        self.assertNotContains(response, "Перерасход")
+
+    def test_add_has_no_warning_without_budget(self):
+        response = self.add_transaction("1200")
+        self.assertNotContains(response, "Перерасход")
+
+    def test_add_has_no_warning_when_category_has_no_plan(self):
+        BudgetMonth.objects.create(year=2026, month=9, income=Decimal("10000"))
+        response = self.add_transaction("1200")
+        self.assertNotContains(response, "Перерасход")
+
+    def test_add_has_no_warning_when_plan_is_zero(self):
+        self.make_plan(percent=0)
+        response = self.add_transaction("1200")
+        self.assertNotContains(response, "Перерасход")
+
+    def test_update_reports_overrun_warning(self):
+        self.make_plan()
+        item = Transaction.objects.create(
+            category=self.category, amount=Decimal("900"), date=date(2026, 9, 1)
+        )
+        response = self.post_json(
+            reverse("expenses:transaction_update", args=[item.pk]),
+            {
+                "date": "2026-09-01",
+                "category": self.category.pk,
+                "amount": "1100",
+                "comment": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Перерасход", response.json()["warning"])
+
+    def test_update_warning_uses_new_category(self):
+        self.make_plan()  # план «Продукты» 1 000 ₽
+        other = Category.objects.create(name="Кафе")
+        item = Transaction.objects.create(
+            category=other, amount=Decimal("900"), date=date(2026, 9, 1)
+        )
+        # Переносим трату в «Продукты» — перерасход считается по новой категории.
+        response = self.post_json(
+            reverse("expenses:transaction_update", args=[item.pk]),
+            {
+                "date": "2026-09-01",
+                "category": self.category.pk,
+                "amount": "1100",
+                "comment": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Продукты", response.json()["warning"])
+
+    def test_update_has_no_warning_within_plan(self):
+        self.make_plan()
+        item = Transaction.objects.create(
+            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+        )
+        response = self.post_json(
+            reverse("expenses:transaction_update", args=[item.pk]),
+            {
+                "date": "2026-09-01",
+                "category": self.category.pk,
+                "amount": "500",
+                "comment": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["warning"], "")
 
     def test_add_rejects_long_comment(self):
         response = self.client.post(

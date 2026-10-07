@@ -25,7 +25,7 @@ from budget.utils import MAX_YEAR, MIN_YEAR, check_month, month_title, shift_mon
 
 from .forms import TransactionForm
 from .models import Transaction
-from .queries import transactions_for_month
+from .queries import category_overrun, transactions_for_month
 
 
 def index(request: HttpRequest) -> HttpResponse:
@@ -59,6 +59,18 @@ def _amount_text(amount: Decimal) -> str:
     return f"{number_format(amount, decimal_pos=2, force_grouping=True)} ₽"
 
 
+def _overrun_warning(item: Transaction) -> str:
+    """Предупреждение о перерасходе плана категории; пустая строка — нет."""
+    overrun = category_overrun(item)
+    if overrun is None:
+        return ""
+    plan, fact = overrun
+    return (
+        f"Перерасход по категории «{item.category.name}»: "
+        f"план {_amount_text(plan)}, потрачено {_amount_text(fact)}."
+    )
+
+
 def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
     """Форма быстрого ввода и список трат месяца."""
     form = TransactionForm(
@@ -70,6 +82,10 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
             request,
             f"Трата добавлена: {_amount_text(item.amount)} — {item.category.name}.",
         )
+        # Перерасход — только предупреждение, трата уже сохранена.
+        warning = _overrun_warning(item)
+        if warning:
+            messages.warning(request, warning)
         return redirect("expenses:month", item.date.year, item.date.month)
 
     items = list(transactions_for_month(year, month).select_related("category"))
@@ -135,6 +151,7 @@ def transaction_update(request: HttpRequest, pk: int) -> JsonResponse:
     return JsonResponse(
         {
             "ok": True,
+            "warning": _overrun_warning(item),
             "transaction": {
                 "id": item.pk,
                 "date": item.date.isoformat(),
