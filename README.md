@@ -38,6 +38,7 @@
 ```
 budget_tracker/
 ├── config/              # Django-проект: settings (base/dev/prod), urls, wsgi/asgi
+├── common/              # общие помощники для приложений
 ├── budget/              # категории и распределение дохода
 ├── expenses/            # ежедневные траты
 ├── purchases/           # планы покупок

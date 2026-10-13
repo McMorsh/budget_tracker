@@ -8,7 +8,6 @@
 инлайн через JSON-эндпоинт; после неё страница перезапрашивает таблицу,
 поэтому порядок строк и итоги всегда совпадают с базой.
 """
-import json
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal
@@ -18,10 +17,12 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import date_format, number_format
+from django.utils.formats import date_format
 from django.views.decorators.http import require_POST
 
+from budget.templatetags.money import rubles
 from budget.utils import MAX_YEAR, MIN_YEAR, check_month, month_title, shift_month
+from common.http import first_error, json_payload
 
 from .forms import TransactionForm
 from .models import Transaction
@@ -54,11 +55,6 @@ def _default_date(year: int, month: int) -> date:
     return date(year, month, 1)
 
 
-def _amount_text(amount: Decimal) -> str:
-    """Сумма по-русски: «1 234,50 ₽»."""
-    return f"{number_format(amount, decimal_pos=2, force_grouping=True)} ₽"
-
-
 def _overrun_warning(item: Transaction) -> str:
     """Предупреждение о перерасходе плана категории; пустая строка — нет."""
     overrun = category_overrun(item)
@@ -67,7 +63,7 @@ def _overrun_warning(item: Transaction) -> str:
     plan, fact = overrun
     return (
         f"Перерасход по категории «{item.category.name}»: "
-        f"план {_amount_text(plan)}, потрачено {_amount_text(fact)}."
+        f"план {rubles(plan, 2)}, потрачено {rubles(fact, 2)}."
     )
 
 
@@ -80,7 +76,7 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
         item = form.save()
         messages.success(
             request,
-            f"Трата добавлена: {_amount_text(item.amount)} — {item.category.name}.",
+            f"Трата добавлена: {rubles(item.amount, 2)} — {item.category.name}.",
         )
         # Перерасход — только предупреждение, трата уже сохранена.
         warning = _overrun_warning(item)
@@ -115,36 +111,19 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
     return render(request, "expenses/month.html", context)
 
 
-def _json_payload(request: HttpRequest) -> dict | None:
-    """JSON-тело запроса; None, если это не JSON-объект."""
-    try:
-        payload = json.loads(request.body)
-    except (TypeError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def _first_error(form: TransactionForm) -> tuple[str, str]:
-    """(поле, сообщение) первой ошибки формы — для JSON-ответа."""
-    for name, errors in form.errors.items():
-        if errors:
-            return name, str(errors[0])
-    return "", "Проверьте данные"
-
-
 @require_POST
 def transaction_update(request: HttpRequest, pk: int) -> JsonResponse:
     """Инлайн-правка траты (AJAX)."""
     # select_related: форма в __init__ обращается к instance.category
     # (архивную категорию нужно оставить доступной).
     item = get_object_or_404(Transaction.objects.select_related("category"), pk=pk)
-    payload = _json_payload(request)
+    payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
     form = TransactionForm(payload, instance=item)
     if not form.is_valid():
-        field, error = _first_error(form)
+        field, error = first_error(form)
         return JsonResponse({"error": error, "field": field}, status=400)
 
     item = form.save()

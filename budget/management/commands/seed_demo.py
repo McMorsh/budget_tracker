@@ -20,6 +20,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from budget.models import Allocation, BudgetMonth, Category
+from budget.utils import shift_month
 from expenses.models import Transaction
 from purchases.models import PlannedPurchase, PurchaseContribution
 
@@ -115,7 +116,7 @@ class Command(BaseCommand):
     def _create_months(self, months, categories, rng):
         today = timezone.localdate()
         for shift in reversed(range(months)):
-            year, month = self._shift(today.year, today.month, shift)
+            year, month = shift_month(today.year, today.month, -shift)
             budget_month = BudgetMonth.objects.create(
                 year=year,
                 month=month,
@@ -199,16 +200,7 @@ class Command(BaseCommand):
             comment="Первый взнос",
         )
 
-    @staticmethod
-    def _shift(year: int, month: int, months_back: int) -> tuple[int, int]:
-        """Возвращает (год, месяц) на `months_back` месяцев назад."""
-        month -= months_back
-        while month < 1:
-            month += 12
-            year -= 1
-        return year, month
-
     def _shift_date(self, day: date, months_back: int) -> date:
-        year, month = self._shift(day.year, day.month, months_back)
+        year, month = shift_month(day.year, day.month, -months_back)
         last_day = monthrange(year, month)[1]
         return date(year, month, min(day.day, last_day))

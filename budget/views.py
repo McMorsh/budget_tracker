@@ -18,6 +18,7 @@ from django.utils.formats import number_format
 from django.views.decorators.http import require_POST
 
 from budget.utils import MAX_YEAR, MIN_YEAR, check_month, month_title, shift_month
+from common.http import first_error, json_payload
 
 from .forms import CategoryForm, MonthPlanForm
 from .models import Allocation, BudgetMonth, Category, money, planned_amount
@@ -226,29 +227,17 @@ def category_list(request: HttpRequest) -> HttpResponse:
     return render(request, "budget/category_list.html", context)
 
 
-def _json_payload(request: HttpRequest) -> dict:
-    """Разбирает JSON-тело запроса; пустой словарь, если это не JSON-объект."""
-    try:
-        payload = json.loads(request.body)
-    except (TypeError, ValueError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _first_error(form: CategoryForm) -> str:
-    """Первое сообщение об ошибке формы — для JSON-ответа."""
-    for errors in form.errors.values():
-        if errors:
-            return str(errors[0])
-    return "Проверьте название"
-
-
 @require_POST
 def category_create(request: HttpRequest) -> JsonResponse:
     """Добавляет категорию (AJAX): порядок — в конец списка."""
-    form = CategoryForm(_json_payload(request))
+    payload = json_payload(request)
+    if payload is None:
+        return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
+
+    form = CategoryForm(payload)
     if not form.is_valid():
-        return JsonResponse({"error": _first_error(form)}, status=400)
+        _, message = first_error(form, "Проверьте название")
+        return JsonResponse({"error": message}, status=400)
 
     category = form.save(commit=False)
     last_position = Category.objects.aggregate(max_position=Max("position"))[
@@ -269,7 +258,9 @@ def category_create(request: HttpRequest) -> JsonResponse:
 @require_POST
 def category_rename(request: HttpRequest) -> JsonResponse:
     """Переименование из списка (AJAX, двойной клик по названию)."""
-    payload = _json_payload(request)
+    payload = json_payload(request)
+    if payload is None:
+        return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
     try:
         pk = int(payload["id"])
     except (KeyError, TypeError, ValueError):
@@ -283,7 +274,8 @@ def category_rename(request: HttpRequest) -> JsonResponse:
 
     form = CategoryForm({"name": payload.get("name", "")}, instance=category)
     if not form.is_valid():
-        return JsonResponse({"error": _first_error(form)}, status=400)
+        _, message = first_error(form, "Проверьте название")
+        return JsonResponse({"error": message}, status=400)
 
     form.save()
     return JsonResponse({"ok": True, "id": category.pk, "name": category.name})

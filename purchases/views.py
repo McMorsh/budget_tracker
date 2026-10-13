@@ -5,15 +5,15 @@
 цели перезапрашиваются с сервера, поэтому порядок целей, прогресс и итоги
 всегда совпадают с базой (тот же приём, что в «Тратах»).
 """
-import json
 from decimal import Decimal
 
 from django.contrib import messages
-from django.forms import BaseForm
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.formats import number_format
 from django.views.decorators.http import require_POST
+
+from budget.templatetags.money import rubles
+from common.http import first_error, json_payload
 
 from .forms import ContributionForm, PlannedPurchaseForm
 from .models import PlannedPurchase, PurchaseContribution
@@ -62,7 +62,7 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
         contribution.purchase = goal
         contribution.save()
         messages.success(
-            request, f"Взнос добавлен: {_amount_text(contribution.amount)}."
+            request, f"Взнос добавлен: {rubles(contribution.amount, 2)}."
         )
         return redirect("purchases:detail", pk)
 
@@ -78,28 +78,6 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
     return render(request, "purchases/detail.html", context)
 
 
-def _amount_text(amount: Decimal) -> str:
-    """Сумма по-русски: «1 234,50 ₽»."""
-    return f"{number_format(amount, decimal_pos=2, force_grouping=True)} ₽"
-
-
-def _json_payload(request: HttpRequest) -> dict | None:
-    """JSON-тело запроса; None, если это не JSON-объект."""
-    try:
-        payload = json.loads(request.body)
-    except (TypeError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def _first_error(form: BaseForm) -> tuple[str, str]:
-    """(поле, сообщение) первой ошибки формы — для JSON-ответа."""
-    for name, errors in form.errors.items():
-        if errors:
-            return name, str(errors[0])
-    return "", "Проверьте данные"
-
-
 @require_POST
 def purchase_update(request: HttpRequest, pk: int) -> JsonResponse:
     """Инлайн-правка цели (AJAX): название, стоимость, приоритет, статус.
@@ -107,13 +85,13 @@ def purchase_update(request: HttpRequest, pk: int) -> JsonResponse:
     Ответ — `{"ok": true}`; ошибки — 400 с `error` и `field`, чужой pk — 404.
     """
     goal = get_object_or_404(PlannedPurchase, pk=pk)
-    payload = _json_payload(request)
+    payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
     form = PlannedPurchaseForm(payload, instance=goal)
     if not form.is_valid():
-        field, error = _first_error(form)
+        field, error = first_error(form)
         return JsonResponse({"error": error, "field": field}, status=400)
 
     form.save()
@@ -129,7 +107,7 @@ def purchase_status(request: HttpRequest, pk: int) -> JsonResponse:
     400 с `error` и `field`, чужой pk — 404.
     """
     goal = get_object_or_404(PlannedPurchase, pk=pk)
-    payload = _json_payload(request)
+    payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
@@ -161,13 +139,13 @@ def contribution_update(request: HttpRequest, pk: int) -> JsonResponse:
     Ответ — `{"ok": true}`; ошибки — 400 с `error` и `field`, чужой pk — 404.
     """
     item = get_object_or_404(PurchaseContribution, pk=pk)
-    payload = _json_payload(request)
+    payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
     form = ContributionForm(payload, instance=item)
     if not form.is_valid():
-        field, error = _first_error(form)
+        field, error = first_error(form)
         return JsonResponse({"error": error, "field": field}, status=400)
 
     form.save()
