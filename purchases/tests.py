@@ -165,7 +165,7 @@ class PlannedPurchaseTests(TestCase):
 
 
 class PurchaseViewsTests(TestCase):
-    """Список целей, карточка, инлайн-правка, статусы и взносы (Фаза 8)."""
+    """Список целей, карточка, инлайн-правка, статусы и взносы."""
 
     @classmethod
     def setUpTestData(cls):

@@ -11,7 +11,7 @@ services:
       context: .
       target: dev
     # Миграции применяем при старте, чтобы "поднять и посмотреть" было одной командой.
-    # Для продакшена это делается отдельным шагом (см. PLAN.md, Фаза 9).
+    # Для продакшена это делается отдельным шагом (см. sites-infra).
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
     restart: unless-stopped
     volumes:

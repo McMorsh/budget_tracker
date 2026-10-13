@@ -238,7 +238,7 @@ class HomeViewTests(TestCase):
 
 
 class MonthReportTests(TestCase):
-    """Отчёт «план/факт» за месяц (Фаза 6)."""
+    """Отчёт «план/факт» за месяц."""
 
     @classmethod
     def setUpTestData(cls):
@@ -460,7 +460,7 @@ class MonthReportTests(TestCase):
 
 
 class YearReportTests(TestCase):
-    """Итоги года (Фаза 6)."""
+    """Итоги года."""
 
     @classmethod
     def setUpTestData(cls):
@@ -651,7 +651,7 @@ class PdfMediaMixin(TestCase):
 
 
 class MonthReportPdfTests(PdfMediaMixin):
-    """PDF-отчёт за месяц (Фаза 7)."""
+    """PDF-отчёт за месяц."""
 
     def pdf_url(self, year: int = 2026, month: int = 9) -> str:
         return reverse("reports:pdf", args=[year, month])
@@ -745,7 +745,7 @@ class MonthReportPdfTests(PdfMediaMixin):
 
 
 class YearReportPdfTests(PdfMediaMixin):
-    """PDF-отчёт за год (Фаза 7)."""
+    """PDF-отчёт за год."""
 
     def pdf_url(self, year: int = 2026) -> str:
         return reverse("reports:pdf_year", args=[year])

@@ -53,7 +53,6 @@ budget_tracker/
 ├── docker-compose.yml   # локальная разработка: web + postgres:18
 ├── .dockerignore
 ├── .env.example
-├── PLAN.md
 └── .gitignore
 ```
 

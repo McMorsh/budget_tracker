@@ -82,7 +82,7 @@ class TransactionTests(TestCase):
 
 
 class TransactionViewsTests(TestCase):
-    """Ввод, список, инлайн-правка и удаление трат (Фаза 5)."""
+    """Ввод, список, инлайн-правка и удаление трат."""
 
     @classmethod
     def setUpTestData(cls):
