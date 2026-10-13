@@ -53,6 +53,7 @@ budget_tracker/
 ├── docker-compose.yml   # локальная разработка: web + postgres:18
 ├── .dockerignore
 ├── .env.example
+├── .github/workflows/   # CI: проверка и тесты на SQLite
 └── .gitignore
 ```
 
@@ -85,6 +86,20 @@ python3 -m venv .venv
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py runserver
 ```
+
+## Тесты
+
+```sh
+.venv/bin/python manage.py test
+```
+
+Если PostgreSQL не запущен, тесты идут на SQLite:
+
+```sh
+DATABASE_URL=sqlite:////tmp/bt-test.sqlite3 .venv/bin/python manage.py test
+```
+
+Этот же набор гоняет CI: `.github/workflows/tests.yml`.
 
 ## Публичное и приватное
 
