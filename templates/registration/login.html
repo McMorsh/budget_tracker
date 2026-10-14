@@ -6,7 +6,7 @@
 <div class="login-wrapper">
   <section class="card">
     <h1>Вход</h1>
-    <p class="muted">Сайт личный: вход только для владельца.</p>
+    <p class="muted">Войдите, чтобы вести свой бюджет.</p>
 
     {% if form.non_field_errors %}
       <div class="alert alert-error">
@@ -33,6 +33,11 @@
       {% endif %}
       <button type="submit" class="button">Войти</button>
     </form>
+
+    <p class="muted">
+      Нет аккаунта?
+      <a href="{% url 'accounts:signup' %}">Зарегистрироваться</a>.
+    </p>
   </section>
 </div>
 {% endblock %}

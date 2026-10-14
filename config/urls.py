@@ -1,6 +1,4 @@
 """Корневой роутинг проекта."""
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
@@ -18,8 +16,9 @@ urlpatterns = [
     path("expenses/", include("expenses.urls")),
     path("reports/", include("reports.urls")),
     path("purchases/", include("purchases.urls")),
-    # Вход/выход: сайт однопользовательский, регистрации нет.
-    # LoginView у Django уже помечен login_not_required.
+    # Вход/выход - штатные представления Django; регистрация - accounts.
+    # LoginView и signup помечены login_not_required.
+    path("accounts/", include("accounts.urls")),
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(
@@ -31,6 +30,6 @@ urlpatterns = [
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
 ]
 
-# Media: в разработке отдаёт runserver, в проде — Caddy (sites-infra).
-# static() сам возвращает [] при DEBUG=False.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Media по URL не раздаётся: PDF-отчёты у каждого пользователя свои, их отдаёт
+# Django только владельцу (reports.views) - чужой отчёт не скачать даже зная
+# путь. Статику (CSS/JS) по-прежнему обслуживает staticfiles.

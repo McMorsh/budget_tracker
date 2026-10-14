@@ -1,7 +1,7 @@
 """Общие настройки для всех окружений.
 
 Секреты и параметры читаются из переменных окружения и файла .env
-(в git не попадает; шаблон — .env.example).
+(в git не попадает; шаблон - .env.example).
 """
 from pathlib import Path
 
@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # приложения проекта
+    "accounts.apps.AccountsConfig",
     "budget.apps.BudgetConfig",
     "expenses.apps.ExpensesConfig",
     "purchases.apps.PurchasesConfig",
@@ -39,7 +40,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    # Все страницы — только для владельца (Django ≥ 5.1); регистрации нет
+    # Все страницы - только после входа (Django ≥ 5.1); публичны только
+    # страницы входа и регистрации (помечены login_not_required)
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -65,7 +67,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# PostgreSQL; строка подключения — DATABASE_URL в .env
+# PostgreSQL; строка подключения - DATABASE_URL в .env
 DATABASES = {"default": env.db("DATABASE_URL")}
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -75,7 +77,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Вход только для владельца: регистрации нет
+# Вход: регистрация открытая (accounts); после входа - на главную
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
