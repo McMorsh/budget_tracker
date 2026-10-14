@@ -39,7 +39,7 @@
 </form>
 
 <p class="muted">
-  Двойной клик по строке активной цели — правка названия, стоимости,
+  Двойной клик по строке активной цели - правка названия, стоимости,
   приоритета и статуса. Приоритет: чем больше число, тем выше цель в списке.
 </p>
 
@@ -66,7 +66,7 @@
               data-status-url="{% url 'purchases:purchase_status' goal.pk %}">
             <td class="purchase-title">
               <span class="title-text">{{ goal.title }}</span>
-              <span class="goal-meta muted">{{ goal.get_status_display }}{% if goal.priority %} · приоритет {{ goal.priority }}{% endif %}</span>
+              <span class="goal-meta muted">{{ goal.get_status_display }}{% if goal.priority %} - приоритет {{ goal.priority }}{% endif %}</span>
             </td>
             <td class="purchase-progress">
               <span class="plan-progress">
@@ -76,14 +76,14 @@
               <span class="goal-meta muted">{% if goal.amount %}{{ goal.contributed|rubles }} из {{ goal.amount|rubles }}{% elif goal.contributed %}накоплено {{ goal.contributed|rubles }}{% else %}стоимость не задана{% endif %}</span>
             </td>
             <td class="num purchase-remaining">
-              {% if not goal.amount %}<span class="muted">—</span>{% elif goal.remaining %}{{ goal.remaining|rubles }}{% else %}<span class="muted">готово</span>{% endif %}
+              {% if not goal.amount %}<span class="muted">-</span>{% elif goal.remaining %}{{ goal.remaining|rubles }}{% else %}<span class="muted">готово</span>{% endif %}
             </td>
             <td class="actions-cell">
               <div class="row-actions">
                 <a class="link-button" href="{% url 'purchases:detail' goal.pk %}">Взносы</a>
                 <button type="button" class="link-button js-status" data-status="bought">Куплено</button>
                 <form method="post" action="{% url 'purchases:purchase_delete' goal.pk %}"
-                      data-confirm="Удалить цель «{{ goal.title }}» вместе со взносами?">
+                      data-confirm="Удалить цель &quot;{{ goal.title }}&quot; вместе со взносами?">
                   {% csrf_token %}
                   <button type="submit" class="link-button link-danger">Удалить</button>
                 </form>
@@ -92,7 +92,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="muted">Активных целей нет — добавьте первую.</td>
+            <td colspan="4" class="muted">Активных целей нет - добавьте первую.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -134,7 +134,7 @@
                   <a class="link-button" href="{% url 'purchases:detail' goal.pk %}">Взносы</a>
                   <button type="button" class="link-button js-status" data-status="saving">Вернуть</button>
                   <form method="post" action="{% url 'purchases:purchase_delete' goal.pk %}"
-                        data-confirm="Удалить цель «{{ goal.title }}» вместе со взносами?">
+                        data-confirm="Удалить цель &quot;{{ goal.title }}&quot; вместе со взносами?">
                     {% csrf_token %}
                     <button type="submit" class="link-button link-danger">Удалить</button>
                   </form>

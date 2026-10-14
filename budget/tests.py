@@ -77,7 +77,7 @@ class AllocationTests(TestCase):
         allocation = Allocation.objects.create(
             budget_month=self.month, category=category, percent=50
         )
-        # 10,05 ₽ × 50 % = 5,025 → 5,03 (при банковском округлении было бы 5,02)
+        # 10,05 ₽ × 50 % = 5,025 -> 5,03 (при банковском округлении было бы 5,02)
         self.assertEqual(allocation.amount, Decimal("5.03"))
 
     def test_percent_range_is_enforced(self):
@@ -106,7 +106,7 @@ class MoneyFilterTests(TestCase):
         self.assertEqual(rubles(Decimal("12750.5"), "2"), "12\xa0750,50 ₽")
 
     def test_rubles_rounds_half_up_by_default(self):
-        # 5000,50 → 5 001 (половина вверх), как в budget.models.money
+        # 5000,50 -> 5 001 (половина вверх), как в budget.models.money
         self.assertEqual(rubles(Decimal("5000.50")), "5\xa0001 ₽")
 
     def test_rubles_handles_negative(self):

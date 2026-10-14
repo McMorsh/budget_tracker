@@ -83,5 +83,5 @@ class TransactionForm(forms.ModelForm):
         field.queryset = categories
 
     def clean_amount(self) -> Decimal:
-        """Нормализует сумму к двум знакам ("1e3" → 1000.00)."""
+        """Нормализует сумму к двум знакам ("1e3" -> 1000.00)."""
         return self.cleaned_data["amount"].quantize(Decimal("0.01"))

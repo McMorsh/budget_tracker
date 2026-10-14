@@ -1,4 +1,4 @@
-/* Budget Tracker — базовые стили */
+/* Budget Tracker - базовые стили */
 
 :root {
   --bg: #f5f6f8;
@@ -99,6 +99,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 /* Вход */
 .login-wrapper { max-width: 380px; margin: 6vh auto 0; }
 .login-form .button { width: 100%; margin-top: 4px; }
+.field-help { font-size: .85rem; }
+.field-help ul { margin: 4px 0 0; padding-left: 18px; }
 
 /* Таблицы */
 .table { width: 100%; border-collapse: collapse; }
@@ -112,10 +114,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 /* Экран распределения месяца */
 .month-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .month-actions form { margin: 0; }
-/* Цифры по центру — не жмутся к стрелкам-счётчику у правого края поля. */
+/* Цифры по центру - не жмутся к стрелкам-счётчику у правого края поля. */
 input.cell-input { width: 96px; text-align: center; }
 input.money-input { width: 160px; text-align: right; }
-/* Колонка «Доля, %»: значения и заголовок по центру, как и цифры в полях. */
+/* Колонка "Доля, %": значения и заголовок по центру, как и цифры в полях. */
 .table th.pct, .table td.pct { text-align: center; font-variant-numeric: tabular-nums; }
 .table .total-row td { font-weight: 600; border-top: 2px solid var(--border); }
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .9rem; font-variant-numeric: tabular-nums; }
@@ -129,7 +131,7 @@ input.money-input { width: 160px; text-align: right; }
 
 /* Таблицы в карточке и действия в строках */
 .table-card { padding: 8px 20px; }
-/* Действия — только во вложенном div внутри td.actions-cell: flex прямо
+/* Действия - только во вложенном div внутри td.actions-cell: flex прямо
    на td выпадает из вертикального выравнивания таблицы, и кнопки
    уезжают вверх относительно сумм в соседних ячейках. */
 .row-actions { display: flex; align-items: center; gap: 14px; justify-content: flex-end; white-space: nowrap; }
@@ -156,10 +158,10 @@ input.name-input {
   width: 100%;
   max-width: 320px;
   min-width: 0;
-  height: 1.5em;            /* = line-height текста в строке — таблица не «прыгает» */
+  height: 1.5em;            /* = line-height текста в строке - таблица не "прыгает" */
   padding: 0 6px;
   border-radius: 6px;
-  display: block;           /* без inline-«хвоста» и без роста строки */
+  display: block;           /* без inline-"хвоста" и без роста строки */
 }
 .field-error {
   position: absolute;
@@ -183,16 +185,16 @@ input.name-input {
 .quick-fields .field { margin-bottom: 0; }
 .quick-fields .field-grow { flex: 1 1 220px; min-width: 180px; }
 .quick-fields .errorlist { max-width: 260px; }
-/* У input, select и button разные «натуральные» высоты: при выравнивании
-   по нижнему краю целое поле со статусом «съезжает» вниз. */
+/* У input, select и button разные "натуральные" высоты: при выравнивании
+   по нижнему краю целое поле со статусом "съезжает" вниз. */
 .quick-fields input, .quick-fields select, .quick-fields .button { min-height: 42px; }
 input.comment-input { width: 100%; }
 .tx-comment { max-width: 280px; }
-/* Эллипсис — на внутреннем span: overflow на td обрезал бы и плашку ошибки */
+/* Эллипсис - на внутреннем span: overflow на td обрезал бы и плашку ошибки */
 .comment-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-row td { position: relative; }
 input.cell-edit, select.cell-edit {
-  display: block;           /* как у .name-input: строка не «прыгает» по высоте */
+  display: block;           /* как у .name-input: строка не "прыгает" по высоте */
   min-width: 0;
   height: 1.5em;
   padding: 0 6px;
@@ -249,7 +251,7 @@ select.status-edit { width: 8em; }
   white-space: normal;
   text-align: left;
 }
-/* В строке-редакторе плашка ошибки — под своим полем. */
+/* В строке-редакторе плашка ошибки - под своим полем. */
 .edit-field .field-error {
   left: 0;
   max-width: 260px;

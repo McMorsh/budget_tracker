@@ -1,4 +1,4 @@
-"""Формы раздела «Покупки»."""
+"""Формы раздела "Покупки"."""
 from decimal import Decimal
 
 from django import forms
@@ -76,5 +76,5 @@ class ContributionForm(forms.ModelForm):
         }
 
     def clean_amount(self) -> Decimal:
-        """Нормализует сумму к двум знакам («1e3» → 1000.00)."""
+        """Нормализует сумму к двум знакам ("1e3" -> 1000.00)."""
         return self.cleaned_data["amount"].quantize(Decimal("0.01"))

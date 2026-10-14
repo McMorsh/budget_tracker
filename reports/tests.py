@@ -297,7 +297,7 @@ class MonthReportTests(TestCase):
         self.assertContains(response, "Бюджет, ₽")
         self.assertContains(response, "Траты, ₽")
         self.assertContains(response, "Остаток, ₽")
-        # Остаток: 34 000 − 1 500; бюджет не израсходован - "+" и зелёный.
+        # Остаток: 34 000 - 1 500; бюджет не израсходован - "+" и зелёный.
         self.assertContains(response, "+32\xa0500,00")
         self.assertContains(response, 'class="num positive"')
 
@@ -311,7 +311,7 @@ class MonthReportTests(TestCase):
         )
 
         response = self.client.get(self.month_url())
-        self.assertContains(response, "106 %")  # 900 / 850 × 100 = 105.9 → 106
+        self.assertContains(response, "106 %")  # 900 / 850 × 100 = 105.9 -> 106
         # Перерасход: остаток отрицательный - минус и красный.
         self.assertContains(response, "-50,00")
         self.assertContains(response, 'class="num negative"')
@@ -427,7 +427,7 @@ class MonthReportTests(TestCase):
         self.assertLess(html.index("Бананы"), html.index("Яблоки"))
 
     def test_planned_amount_rounds_half_up(self):
-        self.make_month(income="1.25", percent=10)  # 0,125 → 0,13
+        self.make_month(income="1.25", percent=10)  # 0,125 -> 0,13
         response = self.client.get(self.month_url())
         self.assertContains(response, "0,13")
 
@@ -610,8 +610,8 @@ class YearReportTests(TestCase):
                 )
 
     def test_year_report_marks_positive_and_negative_differences(self):
-        # Январь: бюджет 20 000, траты 10 000 → "+10 000" зелёным.
-        # Февраль: бюджет 20 000, траты 30 000 → "-10 000" красным.
+        # Январь: бюджет 20 000, траты 10 000 -> "+10 000" зелёным.
+        # Февраль: бюджет 20 000, траты 30 000 -> "-10 000" красным.
         self.make_month(month=1, income="20000", percent=100, day=5, fact="10000")
         self.make_month(month=2, income="20000", percent=100, day=6, fact="30000")
 

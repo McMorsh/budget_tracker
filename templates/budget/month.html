@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}Бюджет — {{ month_title }}{% endblock %}
+{% block title %}Бюджет - {{ month_title }}{% endblock %}
 
 {% block content %}
 <div class="page-head">
@@ -17,8 +17,8 @@
       <form method="post" action="{% url 'budget:month_copy' year month %}">
         {% csrf_token %}
         <button type="submit" class="button"
-                title="Копирует доход, «отложить» и доли категорий из предыдущего месяца">
-          Скопировать распределение процентов из «{{ copy_source.title }}»
+                title="Копирует доход, &quot;отложить&quot; и доли категорий из предыдущего месяца">
+          Скопировать распределение процентов из "{{ copy_source.title }}"
         </button>
       </form>
     {% endif %}
@@ -26,7 +26,7 @@
 </div>
 
 {% if not budget_month %}
-  <p class="muted">Этот месяц ещё не заполнен — укажите доход и распределите доли.</p>
+  <p class="muted">Этот месяц ещё не заполнен - укажите доход и распределите доли.</p>
 {% endif %}
 
 <form method="post" id="month-form">
@@ -62,7 +62,7 @@
         {% empty %}
           <tr>
             <td colspan="3" class="muted">
-              Активных категорий нет — добавьте их в разделе
+              Активных категорий нет - добавьте их в разделе
               <a href="{% url 'budget:categories' %}">Категории</a>.
             </td>
           </tr>

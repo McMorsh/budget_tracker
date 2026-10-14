@@ -39,7 +39,7 @@ def month_detail(request: HttpRequest, year: int, month: int) -> HttpResponse:
 
 
 def _as_decimal(value) -> Decimal:
-    """Значение поля формы в Decimal (пустое и нечитаемое → 0)."""
+    """Значение поля формы в Decimal (пустое и нечитаемое -> 0)."""
     if value is None or value == "":
         return Decimal("0")
     try:
@@ -49,7 +49,7 @@ def _as_decimal(value) -> Decimal:
 
 
 def _as_int(value) -> int:
-    """Значение поля формы в int (пустое и нечитаемое → 0)."""
+    """Значение поля формы в int (пустое и нечитаемое -> 0)."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -279,7 +279,7 @@ def category_rename(request: HttpRequest) -> JsonResponse:
         pk = int(payload["id"])
     except (KeyError, TypeError, ValueError):
         return JsonResponse(
-            {"error": 'Ожидается JSON вида {"id": 1, "name": "…"}'}, status=400
+            {"error": 'Ожидается JSON вида {"id": 1, "name": "..."}'}, status=400
         )
 
     category = Category.objects.filter(pk=pk, owner=request.user).first()

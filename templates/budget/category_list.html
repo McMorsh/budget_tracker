@@ -10,7 +10,7 @@
 </div>
 
 <p class="muted">
-  Перетаскивайте строки за ⠿, чтобы изменить порядок; двойной клик по названию —
+  Перетаскивайте строки за ⠿, чтобы изменить порядок; двойной клик по названию -
   переименовать.
   <span id="order-status" aria-live="polite"></span>
 </p>
@@ -31,7 +31,7 @@
       {% for category in active_categories %}
         <tr data-id="{{ category.pk }}">
           <td class="drag-handle" title="Перетащите, чтобы изменить порядок">⠿</td>
-          <td class="category-name" title="Двойной клик — переименовать">{{ category.name }}</td>
+          <td class="category-name" title="Двойной клик - переименовать">{{ category.name }}</td>
           <td class="actions-cell">
             <div class="row-actions">
               <form method="post" action="{% url 'budget:category_toggle' category.pk %}">
@@ -45,7 +45,7 @@
     </tbody>
   </table>
   {% if not active_categories %}
-    <p class="muted empty-note">Категорий пока нет — добавьте первую.</p>
+    <p class="muted empty-note">Категорий пока нет - добавьте первую.</p>
   {% endif %}
 </div>
 

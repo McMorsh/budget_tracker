@@ -321,7 +321,7 @@ def _legend_label(name: str, amount: Decimal) -> str:
 
 
 def _thousands(value: float, _position: int | None = None) -> str:
-    """Подпись оси: 34000.0 → "34 000"."""
+    """Подпись оси: 34000.0 -> "34 000"."""
     return f"{value:,.0f}".replace(",", "\u00a0")
 
 

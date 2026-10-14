@@ -8,7 +8,7 @@
       size: A4;
       margin: 16mm 14mm 20mm;
       @bottom-center {
-        content: "Budget Tracker · итоги {{ report.year }} года";
+        content: "Budget Tracker - итоги {{ report.year }} года";
         color: #6b7280;
         font-size: 8pt;
       }
@@ -37,20 +37,20 @@
        высота ограничена, чтобы графики остались на одной странице. */
     table.charts .pie-wide { width: 100%; padding: 4mm 0 0; }
     table.charts .pie-wide img { max-height: 70mm; }
-    /* Графики — в натуральную величину (max-width только уменьшает). */
+    /* Графики - в натуральную величину (max-width только уменьшает). */
     .charts img { max-width: 100%; }
     .caption { color: #6b7280; font-size: 8pt; text-align: center; margin-top: 1mm; }
     .empty { color: #6b7280; }
-    /* Месяцы не рвём между страницами: не влезла — переезжает целиком. */
+    /* Месяцы не рвём между страницами: не влезла - переезжает целиком. */
     table.months { break-inside: avoid; }
-    /* Таблица категорий — со следующей страницы. */
+    /* Таблица категорий - со следующей страницы. */
     .page-break { break-before: page; }
   </style>
 </head>
 <body>
   <div class="head">
     <h1>Итоги {{ report.year }} года</h1>
-    <div class="muted">Budget Tracker — личный учёт расходов. Сформировано {{ generated_at|date:"d.m.Y" }}.</div>
+    <div class="muted">Budget Tracker - личный учёт расходов. Сформировано {{ generated_at|date:"d.m.Y" }}.</div>
   </div>
 
   {% if report.months %}
@@ -127,7 +127,7 @@
               <td class="num">{{ row.planned|rubles:"2" }}</td>
               <td class="num">{{ row.fact|rubles:"2" }}</td>
               <td class="num{% if row.remaining < 0 %} negative{% elif row.remaining > 0 %} positive{% endif %}">{% if row.remaining > 0 %}+{% endif %}{{ row.remaining|rubles:"2" }}</td>
-              <td class="num">{% if row.has_plan %}{{ row.used_percent }} %{% else %}—{% endif %}</td>
+              <td class="num">{% if row.has_plan %}{{ row.used_percent }} %{% else %}-{% endif %}</td>
             </tr>
           {% endfor %}
           <tr class="total">

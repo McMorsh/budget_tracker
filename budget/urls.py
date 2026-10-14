@@ -1,4 +1,4 @@
-"""Роутинг раздела «Бюджет»."""
+"""Роутинг раздела "Бюджет"."""
 from django.urls import path
 
 from . import views

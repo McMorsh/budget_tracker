@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}Отчёт — {{ report.title }}{% endblock %}
+{% block title %}Отчёт - {{ report.title }}{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Отчёт — {{ report.title }}</h1>
+  <h1>Отчёт - {{ report.title }}</h1>
   <div class="month-actions">
     {% if can_prev %}
       <a class="button button-ghost" href="{% url 'reports:month' prev_year prev_month %}" title="{{ prev_title }}">←</a>
@@ -29,14 +29,14 @@
       <div class="stat">
         <dt>Свободно от дохода</dt>
         {% if report.free is None %}
-          <dd>—</dd>
+          <dd>-</dd>
         {% else %}
           <dd{% if report.free < 0 %} class="negative"{% endif %}>{{ report.free|rubles }}</dd>
         {% endif %}
       </div>
     </dl>
     {% if report.budget_month and report.planned_percent != 100 %}
-      <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % — бюджет не сходится.</p>
+      <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % - бюджет не сходится.</p>
     {% endif %}
   </section>
 
@@ -79,7 +79,7 @@
                 {{ row.used_percent }} %
               </span>
             {% else %}
-              —
+              -
             {% endif %}
           </td>
         </tr>

@@ -8,7 +8,7 @@
       size: A4;
       margin: 16mm 14mm 20mm;
       @bottom-center {
-        content: "Budget Tracker · отчёт за {{ report.title }}";
+        content: "Budget Tracker - отчёт за {{ report.title }}";
         color: #6b7280;
         font-size: 8pt;
       }
@@ -45,7 +45,7 @@
 <body>
   <div class="head">
     <h1>Отчёт за {{ report.title }}</h1>
-    <div class="muted">Budget Tracker — личный учёт расходов. Сформировано {{ generated_at|date:"d.m.Y" }}.</div>
+    <div class="muted">Budget Tracker - личный учёт расходов. Сформировано {{ generated_at|date:"d.m.Y" }}.</div>
   </div>
 
   <h2>Сводка</h2>
@@ -57,7 +57,7 @@
     <tr><td class="label">Свободно от дохода</td><td class="value">{{ report.free|rubles }}</td></tr>
   </table>
   {% if report.budget_month and report.planned_percent != 100 %}
-    <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % — бюджет не сходится.</p>
+    <p class="muted">Σ долей = {{ report.planned_percent }} % из 100 % - бюджет не сходится.</p>
   {% endif %}
 
   {% if report.rows %}
@@ -94,7 +94,7 @@
             <td class="num">{{ row.planned|rubles:"2" }}</td>
             <td class="num">{{ row.fact|rubles:"2" }}</td>
             <td class="num{% if row.remaining < 0 %} negative{% elif row.remaining > 0 %} positive{% endif %}">{% if row.remaining > 0 %}+{% endif %}{{ row.remaining|rubles:"2" }}</td>
-            <td class="num">{% if row.has_plan %}{{ row.used_percent }} %{% else %}—{% endif %}</td>
+            <td class="num">{% if row.has_plan %}{{ row.used_percent }} %{% else %}-{% endif %}</td>
           </tr>
         {% endfor %}
         <tr class="total">

@@ -30,7 +30,7 @@ class CategoryTotal:
 
     @property
     def remaining(self) -> Decimal:
-        """Остаток бюджета: бюджет − траты; отрицательный - перерасход."""
+        """Остаток бюджета: бюджет - траты; отрицательный - перерасход."""
         return self.planned - self.fact
 
     @property
@@ -73,12 +73,12 @@ class MonthReport:
 
     @property
     def remaining(self) -> Decimal:
-        """Остаток бюджета: бюджет − траты по категориям."""
+        """Остаток бюджета: бюджет - траты по категориям."""
         return self.planned - self.spent
 
     @property
     def free(self) -> Decimal | None:
-        """Свободно от дохода: доход − "отложить" − траты.
+        """Свободно от дохода: доход - "отложить" - траты.
 
         None, если бюджета на месяц нет: без дохода разница не имеет смысла.
         """
@@ -104,7 +104,7 @@ class MonthTotal:
 
     @property
     def remaining(self) -> Decimal:
-        """Остаток бюджета: бюджет − траты."""
+        """Остаток бюджета: бюджет - траты."""
         return self.planned - self.spent
 
 
@@ -121,7 +121,7 @@ class YearReport:
 
     @property
     def remaining(self) -> Decimal:
-        """Остаток бюджета за год: бюджет − траты."""
+        """Остаток бюджета за год: бюджет - траты."""
         return self.planned - self.spent
 
 

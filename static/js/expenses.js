@@ -70,12 +70,12 @@
         if (fresh && table) {
           table.replaceWith(fresh);
         } else {
-          // Сессия истекла или разметка изменилась — показываем страницу целиком.
+          // Сессия истекла или разметка изменилась - показываем страницу целиком.
           window.location.reload();
         }
       })
       .catch(function () {
-        // Не смогли обновить тихо — показываем страницу целиком.
+        // Не смогли обновить тихо - показываем страницу целиком.
         window.location.reload();
       });
   }
@@ -131,7 +131,7 @@
 
   function startEdit(row) {
     if (editing && !document.contains(editing.row)) {
-      // Таблицу успели заменить (refreshTable) — прежняя правка осиротела.
+      // Таблицу успели заменить (refreshTable) - прежняя правка осиротела.
       editing = null;
     }
     if (!row || editing || !row.classList.contains("tx-row")) {
@@ -245,20 +245,20 @@
         .then(function (data) {
           editing = null;
           if (!data.transaction) {
-            // Сервер ответил не тем (например, сессия истекла) —
+            // Сервер ответил не тем (например, сессия истекла) -
             // показываем страницу целиком.
             window.location.reload();
             return;
           }
           if (data.transaction.date.slice(0, 7) !== view) {
-            // Дата ушла в другой месяц — показываем его.
+            // Дата ушла в другой месяц - показываем его.
             window.location.href = data.month_url;
             return;
           }
           if (data.warning) {
             showWarning(data.warning);
           } else {
-            // Перерасхода больше нет — убираем прошлое предупреждение.
+            // Перерасхода больше нет - убираем прошлое предупреждение.
             clearWarning();
           }
           refreshTable();
@@ -267,7 +267,7 @@
           busy = false;
           const message =
             error instanceof TypeError
-              ? "Нет связи с сервером — проверьте соединение"
+              ? "Нет связи с сервером - проверьте соединение"
               : error.message;
           const cells = {
             date: dateCell,
@@ -316,7 +316,7 @@
       return;
     }
     if (event.target.tagName === "SELECT") {
-      // Не мешаем нативному списку категорий: Enter/Escape — его клавиши,
+      // Не мешаем нативному списку категорий: Enter/Escape - его клавиши,
       // а не сохранить/отменить всю строку.
       return;
     }

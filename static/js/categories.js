@@ -70,13 +70,13 @@
       const ids = Array.from(list.querySelectorAll("tr[data-id]")).map(function (row) {
         return Number(row.dataset.id);
       });
-      setStatus("Сохраняю…");
+      setStatus("Сохраняю...");
       request(list.dataset.reorderUrl, { ids: ids })
         .then(function () {
           setStatus("Порядок сохранён");
         })
         .catch(function () {
-          setStatus("Не удалось сохранить порядок — обновите страницу");
+          setStatus("Не удалось сохранить порядок - обновите страницу");
         });
     },
   });
@@ -94,7 +94,7 @@
 
     const nameCell = document.createElement("td");
     nameCell.className = "category-name";
-    nameCell.title = "Двойной клик — переименовать";
+    nameCell.title = "Двойной клик - переименовать";
     nameCell.textContent = data.name;
 
     const actions = document.createElement("td");

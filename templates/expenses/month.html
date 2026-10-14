@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}Траты — {{ month_title }}{% endblock %}
+{% block title %}Траты - {{ month_title }}{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Траты — {{ month_title }}</h1>
+  <h1>Траты - {{ month_title }}</h1>
   <div class="month-actions">
     {% if can_prev %}
       <a class="button button-ghost" href="{% url 'expenses:month' prev_year prev_month %}" title="{{ prev_title }}">←</a>
@@ -47,7 +47,7 @@
 </form>
 
 <p class="muted">
-  Месяц траты определяется её датой. Двойной клик по строке — быстрая правка.
+  Месяц траты определяется её датой. Двойной клик по строке - быстрая правка.
 </p>
 
 <div class="card table-card">
@@ -75,7 +75,7 @@
           <td class="tx-category">
             {{ item.category.name }}{% if not item.category.is_active %} <span class="muted">(в архиве)</span>{% endif %}
           </td>
-          <td class="tx-comment muted" title="{{ item.comment }}"><span class="comment-text">{{ item.comment|default:"—" }}</span></td>
+          <td class="tx-comment muted" title="{{ item.comment }}"><span class="comment-text">{{ item.comment|default:"-" }}</span></td>
           <td class="num tx-amount">{{ item.amount|rubles:"2" }}</td>
           <td class="actions-cell">
             <div class="row-actions">
@@ -90,7 +90,7 @@
         </tr>
       {% empty %}
         <tr>
-          <td colspan="5" class="muted">За этот месяц трат ещё нет — добавьте первую.</td>
+          <td colspan="5" class="muted">За этот месяц трат ещё нет - добавьте первую.</td>
         </tr>
       {% endfor %}
     </tbody>

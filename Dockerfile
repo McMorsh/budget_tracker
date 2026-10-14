@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# WeasyPrint (PDF): pango/harfbuzz для вёрстки; DejaVu — шрифты с кириллицей
+# WeasyPrint (PDF): pango/harfbuzz для вёрстки; DejaVu - шрифты с кириллицей
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpango-1.0-0 \

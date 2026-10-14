@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}{{ goal.title }} — покупки{% endblock %}
+{% block title %}{{ goal.title }} - покупки{% endblock %}
 
 {% block content %}
 <div class="page-head">
@@ -81,7 +81,7 @@
               data-update-url="{% url 'purchases:contribution_update' item.pk %}">
             <td class="contribution-date">{{ item.date|date:"d.m.Y" }}</td>
             <td class="contribution-comment muted" title="{{ item.comment }}">
-              <span class="comment-text">{{ item.comment|default:"—" }}</span>
+              <span class="comment-text">{{ item.comment|default:"-" }}</span>
             </td>
             <td class="num contribution-amount">{{ item.amount|rubles:"2" }}</td>
             <td class="actions-cell">
@@ -97,7 +97,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="muted">Взносов ещё нет — добавьте первый.</td>
+            <td colspan="4" class="muted">Взносов ещё нет - добавьте первый.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -116,7 +116,7 @@
 
 <div class="card danger-card">
   <form method="post" action="{% url 'purchases:purchase_delete' goal.pk %}"
-        data-confirm="Удалить цель «{{ goal.title }}» вместе со всеми взносами?">
+        data-confirm="Удалить цель &quot;{{ goal.title }}&quot; вместе со всеми взносами?">
     {% csrf_token %}
     <button type="submit" class="link-button link-danger">Удалить цель</button>
     <span class="muted">Все взносы по цели тоже удалятся.</span>
