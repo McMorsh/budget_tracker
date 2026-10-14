@@ -1,4 +1,4 @@
-"""Админка приложения «Покупки»."""
+"""Админка приложения "Покупки"."""
 from django.contrib import admin
 
 from .models import PlannedPurchase, PurchaseContribution
@@ -13,13 +13,14 @@ class PurchaseContributionInline(admin.TabularInline):
 class PlannedPurchaseAdmin(admin.ModelAdmin):
     list_display = [
         "title",
+        "owner",
         "amount",
         "status",
         "priority",
         "contributed_display",
         "remaining_display",
     ]
-    list_filter = ["status"]
+    list_filter = ["status", "owner"]
     search_fields = ["title"]
     inlines = [PurchaseContributionInline]
 

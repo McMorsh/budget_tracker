@@ -1,12 +1,13 @@
 """Модели трат.
 
 Месяц траты не хранится: он определяется по дате (`timezone.localdate()`
-для значения по умолчанию). Категория защищена от удаления (PROTECT) —
+для значения по умолчанию). Категория защищена от удаления (PROTECT) -
 категории архивируются, история трат сохраняется.
 """
 from datetime import date
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -19,6 +20,12 @@ from budget.utils import MAX_YEAR, MIN_YEAR
 class Transaction(models.Model):
     """Трата: дата, категория, сумма, комментарий."""
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+        verbose_name="владелец",
+    )
     # Границы те же, что у навигации по месяцам (`budget.utils`): дата вне
     # диапазона увела бы после сохранения на несуществующий экран.
     date = models.DateField(
@@ -62,4 +69,4 @@ class Transaction(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.date:%d.%m.%Y} — {self.category}: {self.amount} ₽"
+        return f"{self.date:%d.%m.%Y} - {self.category}: {self.amount} ₽"

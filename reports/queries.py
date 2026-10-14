@@ -1,13 +1,14 @@
 """Сводки для отчётов: бюджет/траты за месяц и итоги года.
 
-Только чтение и расчёты; страницы — в `reports/views.py`. Бюджет категории —
-доход месяца × доля (`planned_amount`), траты — сумма операций. Остаток
-положительный, если бюджет не израсходован; отрицательный — перерасход.
+Только чтение и расчёты; страницы - в `reports/views.py`. Бюджет категории -
+доход месяца × доля (`planned_amount`), траты - сумма операций. Остаток
+положительный, если бюджет не израсходован; отрицательный - перерасход.
 """
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.contrib.auth.models import User
 from django.db.models import QuerySet, Sum
 from django.db.models.functions import TruncMonth
 from django.utils.formats import date_format
@@ -29,7 +30,7 @@ class CategoryTotal:
 
     @property
     def remaining(self) -> Decimal:
-        """Остаток бюджета: бюджет − траты; отрицательный — перерасход."""
+        """Остаток бюджета: бюджет − траты; отрицательный - перерасход."""
         return self.planned - self.fact
 
     @property
@@ -47,13 +48,13 @@ class CategoryTotal:
 
     @property
     def bar_percent(self) -> int:
-        """Ширина полосы прогресса, 0–100 % (перерасход не расширяет полосу)."""
+        """Ширина полосы прогресса, 0-100 % (перерасход не расширяет полосу)."""
         return min(self.used_percent, 100)
 
 
 @dataclass
 class MonthReport:
-    """Сводка «бюджет/траты» за месяц."""
+    """Сводка "бюджет/траты" за месяц."""
 
     year: int
     month: int
@@ -67,7 +68,7 @@ class MonthReport:
 
     @property
     def title(self) -> str:
-        """Название месяца по-русски, например «Сентябрь 2026»."""
+        """Название месяца по-русски, например "Сентябрь 2026"."""
         return month_title(self.year, self.month)
 
     @property
@@ -77,7 +78,7 @@ class MonthReport:
 
     @property
     def free(self) -> Decimal | None:
-        """Свободно от дохода: доход − «отложить» − траты.
+        """Свободно от дохода: доход − "отложить" − траты.
 
         None, если бюджета на месяц нет: без дохода разница не имеет смысла.
         """
@@ -98,7 +99,7 @@ class MonthTotal:
 
     @property
     def title(self) -> str:
-        """Название месяца без года, например «Январь»."""
+        """Название месяца без года, например "Январь"."""
         return date_format(date(self.year, self.month, 1), "F")
 
     @property
@@ -139,9 +140,9 @@ def _percents_by_category(budget_month: BudgetMonth) -> dict[int, int]:
 
 
 def _category_rows(
-    facts: dict[int, Decimal], planned: dict[int, Decimal]
+    facts: dict[int, Decimal], planned: dict[int, Decimal], owner: User
 ) -> list[CategoryTotal]:
-    """Строки по категориям в порядке вывода (`Category.Meta.ordering`)."""
+    """Строки по категориям владельца в порядке вывода (`Category.Meta.ordering`)."""
     category_ids = set(facts) | set(planned)
     return [
         CategoryTotal(
@@ -149,14 +150,16 @@ def _category_rows(
             planned=planned.get(category.pk, ZERO),
             fact=facts.get(category.pk, ZERO),
         )
-        for category in Category.objects.filter(pk__in=category_ids)
+        for category in Category.objects.filter(pk__in=category_ids, owner=owner)
     ]
 
 
-def month_report(year: int, month: int) -> MonthReport:
-    """Сводка «бюджет/траты» за календарный месяц."""
-    budget_month = BudgetMonth.objects.filter(year=year, month=month).first()
-    facts = _facts_by_category(transactions_for_month(year, month))
+def month_report(year: int, month: int, owner: User) -> MonthReport:
+    """Сводка "бюджет/траты" владельца за календарный месяц."""
+    budget_month = BudgetMonth.objects.filter(
+        year=year, month=month, owner=owner
+    ).first()
+    facts = _facts_by_category(transactions_for_month(year, month, owner))
 
     income = ZERO
     savings = ZERO
@@ -170,7 +173,7 @@ def month_report(year: int, month: int) -> MonthReport:
         for category_id, percent in percents.items():
             planned[category_id] = planned_amount(income, percent)
 
-    rows = _category_rows(facts, planned)
+    rows = _category_rows(facts, planned, owner)
     return MonthReport(
         year=year,
         month=month,
@@ -184,23 +187,23 @@ def month_report(year: int, month: int) -> MonthReport:
     )
 
 
-def year_report(year: int) -> YearReport:
-    """Сводка за год: по месяцам и по категориям.
+def year_report(year: int, owner: User) -> YearReport:
+    """Сводка владельца за год: по месяцам и по категориям.
 
-    Годовой бюджет — сумма округлённых месячных сумм (как на месячных
+    Годовой бюджет - сумма округлённых месячных сумм (как на месячных
     экранах), а не округление годового итога. Месяцы без бюджета и трат
-    в список не попадают — таблица и график остаются компактными.
+    в список не попадают - таблица и график остаются компактными.
     """
     budget_months = {
         budget_month.month: budget_month
-        for budget_month in BudgetMonth.objects.filter(year=year)
+        for budget_month in BudgetMonth.objects.filter(year=year, owner=owner)
     }
 
     planned_by_month: dict[int, Decimal] = {}
     planned_by_category: dict[int, Decimal] = {}
-    allocations = Allocation.objects.filter(budget_month__year=year).select_related(
-        "budget_month", "category"
-    )
+    allocations = Allocation.objects.filter(
+        budget_month__year=year, budget_month__owner=owner
+    ).select_related("budget_month", "category")
     for allocation in allocations:
         month_number = allocation.budget_month.month
         amount = allocation.amount
@@ -212,7 +215,7 @@ def year_report(year: int) -> YearReport:
             planned_by_category.get(category_id, ZERO) + amount
         )
 
-    transactions = transactions_for_period(date(year, 1, 1), date(year, 12, 31))
+    transactions = transactions_for_period(date(year, 1, 1), date(year, 12, 31), owner)
     facts = _facts_by_category(transactions)
     facts_by_month = {
         row["period"].month: row["total"]
@@ -239,7 +242,7 @@ def year_report(year: int) -> YearReport:
     return YearReport(
         year=year,
         months=months,
-        rows=_category_rows(facts, planned_by_category),
+        rows=_category_rows(facts, planned_by_category, owner),
         income=sum((month.income for month in months), ZERO),
         planned=sum((month.planned for month in months), ZERO),
         spent=sum((month.spent for month in months), ZERO),

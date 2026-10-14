@@ -3,8 +3,8 @@
 Matplotlib и WeasyPrint импортируются внутри функций: при старте сайта их
 держать в памяти не нужно, а matplotlib занимает десятки мегабайт. Суммы
 переводятся в float только для графиков (`json`-подобный обмен с matplotlib);
-в PDF и на страницах — по-прежнему Decimal. Графики вставляются в HTML как
-PNG в data-URI — WeasyPrint не ходит по внешним URL.
+в PDF и на страницах - по-прежнему Decimal. Графики вставляются в HTML как
+PNG в data-URI - WeasyPrint не ходит по внешним URL.
 """
 import base64
 import io
@@ -14,13 +14,14 @@ from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.formats import number_format
 
 from . import queries
 
-# Цвета — как в палитре сайта (static/css/style.css и reports.js).
+# Цвета - как в палитре сайта (static/css/style.css и reports.js).
 BAR_BUDGET_COLOR = "#93c5fd"
 BAR_SPENT_COLOR = "#2563eb"
 PIE_COLORS = [
@@ -36,44 +37,49 @@ PIE_COLORS = [
     "#94a3b8",
 ]
 
-# Подкаталог внутри MEDIA_ROOT; имена файлов детерминированные — отчёт
+# Подкаталог внутри MEDIA_ROOT; имена файлов детерминированные - отчёт
 # пересобирается при каждом скачивании, поэтому кэш не нужен.
 REPORT_DIR = "reports"
 
 # Сколько секторов круговой диаграммы показываем отдельно; остальные
-# свёртываем в «Прочее», иначе легенда из десятков строк нечитаема.
+# свёртываем в "Прочее", иначе легенда из десятков строк нечитаема.
 PIE_MAX_SLICES = 8
 
 # После стольких столбцов диаграмма занимает всю ширину страницы
-# (месяцы — под ней отдельной строкой), иначе столбцы и подписи тесны.
+# (месяцы - под ней отдельной строкой), иначе столбцы и подписи тесны.
 WIDE_CHART_AFTER = 8
 
 
-def report_path(year: int, month: int | None = None) -> Path:
-    """Путь к PDF-отчёту в media.
+def report_path(owner: User, year: int, month: int | None = None) -> Path:
+    """Путь к PDF-отчёту владельца в media.
+
+    Файлы лежат в подкаталоге пользователя: у разных владельцев отчёты
+    не перезаписывают друг друга.
 
     Args:
+        owner: Владелец данных.
         year: Год отчёта.
-        month: Номер месяца; без него — отчёт за год.
+        month: Номер месяца; без него - отчёт за год.
 
     Returns:
         Путь к файлу (файл может ещё не существовать).
     """
     name = f"{year}.pdf" if month is None else f"{year}-{month:02d}.pdf"
-    return Path(settings.MEDIA_ROOT) / REPORT_DIR / name
+    return Path(settings.MEDIA_ROOT) / REPORT_DIR / str(owner.pk) / name
 
 
-def build_report_pdf(year: int, month: int) -> Path:
+def build_report_pdf(year: int, month: int, owner: User) -> Path:
     """Собирает PDF-отчёт за месяц и сохраняет его в media.
 
     Args:
         year: Год отчёта.
-        month: Номер месяца (1–12).
+        month: Номер месяца (1-12).
+        owner: Владелец данных, попадающих в отчёт.
 
     Returns:
         Путь к сохранённому PDF-файлу.
     """
-    report = queries.month_report(year, month)
+    report = queries.month_report(year, month, owner)
     wide = len(report.rows) > WIDE_CHART_AFTER
 
     chart_bar = None
@@ -101,19 +107,20 @@ def build_report_pdf(year: int, month: int) -> Path:
             "generated_at": timezone.localdate(),
         },
     )
-    return _write_pdf(html, report_path(year, month))
+    return _write_pdf(html, report_path(owner, year, month))
 
 
-def build_year_pdf(year: int) -> Path:
+def build_year_pdf(year: int, owner: User) -> Path:
     """Собирает PDF-отчёт за год и сохраняет его в media.
 
     Args:
         year: Год отчёта.
+        owner: Владелец данных, попадающих в отчёт.
 
     Returns:
         Путь к сохранённому PDF-файлу.
     """
-    report = queries.year_report(year)
+    report = queries.year_report(year, owner)
     wide = len(report.months) > WIDE_CHART_AFTER
 
     chart_bar = None
@@ -141,7 +148,7 @@ def build_year_pdf(year: int) -> Path:
             "generated_at": timezone.localdate(),
         },
     )
-    return _write_pdf(html, report_path(year))
+    return _write_pdf(html, report_path(owner, year))
 
 
 def _write_pdf(html: str, path: Path) -> Path:
@@ -164,7 +171,7 @@ def _html_to_pdf(html: str) -> bytes:
     from weasyprint import HTML
 
     pdf_bytes = HTML(string=html, base_url=str(settings.BASE_DIR)).write_pdf()
-    # Без target WeasyPrint всегда отдаёт байты; None в типе — для записи в файл.
+    # Без target WeasyPrint всегда отдаёт байты; None в типе - для записи в файл.
     if pdf_bytes is None:
         raise RuntimeError("WeasyPrint не вернул PDF")
     return pdf_bytes
@@ -178,7 +185,7 @@ def _png_data_uri(png: bytes) -> str:
 def _bar_chart(
     labels: list[str], planned: list[Decimal], fact: list[Decimal], wide: bool = False
 ) -> bytes:
-    """Столбчатая диаграмма «бюджет / траты» (PNG).
+    """Столбчатая диаграмма "бюджет / траты" (PNG).
 
     Args:
         labels: Подписи столбцов (категории или месяцы).
@@ -208,7 +215,7 @@ def _bar_chart(
     figure, axes = plt.subplots(figsize=figure_size, dpi=150)
     axes.bar(
         [position - width / 2 for position in positions],
-        # float — только для matplotlib: он принимает числа, а не Decimal.
+        # float - только для matplotlib: он принимает числа, а не Decimal.
         [float(value) for value in planned],
         width,
         label="Бюджет",
@@ -244,7 +251,7 @@ def _bar_chart(
         # bbox_inches: вместе с легендой над осями.
         figure.savefig(buffer, format="png", bbox_inches="tight")
     finally:
-        # Фигура живёт в глобальном реестре pyplot — закрываем в любом случае.
+        # Фигура живёт в глобальном реестре pyplot - закрываем в любом случае.
         plt.close(figure)
     return buffer.getvalue()
 
@@ -255,8 +262,8 @@ def _pie_chart(items: list[tuple[str, Decimal]]) -> bytes | None:
     Args:
         items: Пары (название, сумма) без фильтрации и сортировки.
 
-    Крупные позиции — отдельными секторами (их не больше `PIE_MAX_SLICES`),
-    мелкие — одним сектором «Прочее».
+    Крупные позиции - отдельными секторами (их не больше `PIE_MAX_SLICES`),
+    мелкие - одним сектором "Прочее".
     """
     rows = sorted(
         ((name, amount) for name, amount in items if amount > 0),
@@ -309,12 +316,12 @@ def _pie_chart(items: list[tuple[str, Decimal]]) -> bytes | None:
 
 
 def _legend_label(name: str, amount: Decimal) -> str:
-    """Строка легенды: «Продукты — 16 451 ₽» (копейки в легенде не нужны)."""
-    return f"{name} — {number_format(amount, decimal_pos=0, force_grouping=True)} ₽"
+    """Строка легенды: "Продукты - 16 451 ₽" (копейки в легенде не нужны)."""
+    return f"{name} - {number_format(amount, decimal_pos=0, force_grouping=True)} ₽"
 
 
 def _thousands(value: float, _position: int | None = None) -> str:
-    """Подпись оси: 34000.0 → «34 000»."""
+    """Подпись оси: 34000.0 → "34 000"."""
     return f"{value:,.0f}".replace(",", "\u00a0")
 
 

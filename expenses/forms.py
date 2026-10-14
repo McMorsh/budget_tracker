@@ -1,8 +1,9 @@
-"""Формы раздела «Траты»."""
+"""Формы раздела "Траты"."""
 from decimal import Decimal
 from typing import cast
 
 from django import forms
+from django.contrib.auth.models import User
 from django.db.models import Q
 
 from budget.models import Category
@@ -62,21 +63,25 @@ class TransactionForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, owner: User, **kwargs):
         super().__init__(*args, **kwargs)
-        # Новые траты — только по активным категориям. При правке уже
-        # сохранённой траты её категория остаётся доступной, даже если она
-        # в архиве: иначе строку не сохранить.
-        categories = Category.objects.filter(is_active=True)
+        # Новым тратам владелец ставится здесь: форма - единственная точка
+        # создания, а поле owner в форме не показывается.
+        if not self.instance.pk:
+            self.instance.owner = owner
+        # Новые траты - только по активным категориям владельца. При правке
+        # уже сохранённой траты её категория остаётся доступной, даже если
+        # она в архиве: иначе строку не сохранить.
+        categories = Category.objects.filter(owner=owner, is_active=True)
         if self.instance.pk:
             current = self.instance.category
             if not current.is_active:
-                categories = Category.objects.filter(
+                categories = Category.objects.filter(owner=owner).filter(
                     Q(is_active=True) | Q(pk=current.pk)
                 )
         field = cast(CategoryChoiceField, self.fields["category"])
         field.queryset = categories
 
     def clean_amount(self) -> Decimal:
-        """Нормализует сумму к двум знакам («1e3» → 1000.00)."""
+        """Нормализует сумму к двум знакам ("1e3" → 1000.00)."""
         return self.cleaned_data["amount"].quantize(Decimal("0.01"))

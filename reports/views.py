@@ -1,6 +1,6 @@
 """Представления аналитики: обзор, отчёты и PDF.
 
-`home` — обзорная страница (текущий месяц и цели покупок), остальные —
+`home` - обзорная страница (текущий месяц и цели покупок), остальные -
 отчёты за месяц и за год; данные готовит `reports/queries.py`, графики
 рисует `static/js/reports.js` по json_script-блокам, PDF собирает
 `reports/pdf.py`.
@@ -38,10 +38,10 @@ def home(request: HttpRequest) -> HttpResponse:
     """Обзор: текущий месяц и цели покупок."""
     today = timezone.localdate()
     budget_month = BudgetMonth.objects.filter(
-        year=today.year, month=today.month
+        year=today.year, month=today.month, owner=request.user
     ).first()
 
-    spent = transactions_for_month(today.year, today.month).aggregate(
+    spent = transactions_for_month(today.year, today.month, request.user).aggregate(
         total=Sum("amount")
     )["total"] or Decimal("0")
 
@@ -49,11 +49,13 @@ def home(request: HttpRequest) -> HttpResponse:
     if budget_month is not None:
         free = budget_month.income - budget_month.savings_amount - spent
 
-    # Аннотация `contributed_total` — один запрос на все цели вместо запроса
-    # на каждую (см. PlannedPurchase.contributed); порядок — по приоритету,
-    # как в разделе «Покупки».
+    # Аннотация `contributed_total` - один запрос на все цели вместо запроса
+    # на каждую (см. PlannedPurchase.contributed); порядок - по приоритету,
+    # как в разделе "Покупки".
     goals = list(
-        goals_with_contributed().filter(status=PlannedPurchase.Status.SAVING)
+        goals_with_contributed(request.user).filter(
+            status=PlannedPurchase.Status.SAVING
+        )
     )
     goals_remaining = sum((goal.remaining for goal in goals), Decimal("0"))
 
@@ -68,25 +70,25 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 def index(request: HttpRequest) -> HttpResponse:
-    """Отчёт «план/факт» за текущий месяц."""
+    """Отчёт "план/факт" за текущий месяц."""
     today = timezone.localdate()
     return _month_screen(request, today.year, today.month)
 
 
 def month(request: HttpRequest, year: int, month: int) -> HttpResponse:
-    """Отчёт «план/факт» за конкретный месяц."""
+    """Отчёт "план/факт" за конкретный месяц."""
     check_month(year, month)
     return _month_screen(request, year, month)
 
 
 def _back_month(request: HttpRequest, year: int, report: queries.YearReport) -> int:
-    """Месяц для кнопки «К месячному отчёту».
+    """Месяц для кнопки "К месячному отчёту".
 
-    Если пришли с месячного отчёта — месяц из параметра `month`; иначе
+    Если пришли с месячного отчёта - месяц из параметра `month`; иначе
     текущий месяц того же года, последний месяц с данными или декабрь.
     """
     raw = request.GET.get("month", "")
-    # isdecimal, а не isdigit: «²».isdigit() истинно, но int() на нём падает.
+    # isdecimal, а не isdigit: "²".isdigit() истинно, но int() на нём падает.
     if raw.isdecimal() and 1 <= int(raw) <= 12:
         return int(raw)
     today = timezone.localdate()
@@ -100,7 +102,7 @@ def _back_month(request: HttpRequest, year: int, report: queries.YearReport) -> 
 def year(request: HttpRequest, year: int) -> HttpResponse:
     """Итоги года: таблицы по месяцам и категориям, графики."""
     check_year(year)
-    report = queries.year_report(year)
+    report = queries.year_report(year, request.user)
     fact_rows = [row for row in report.rows if row.fact > 0]
 
     context = {
@@ -110,7 +112,7 @@ def year(request: HttpRequest, year: int) -> HttpResponse:
         "next_year": year + 1,
         "can_prev": year > MIN_YEAR,
         "can_next": year < MAX_YEAR,
-        # Данные графиков — float только для JSON (см. пояснение
+        # Данные графиков - float только для JSON (см. пояснение
         # в _month_screen), в таблицах суммы остаются Decimal.
         "month_chart": {
             "labels": [month_total.title for month_total in report.months],
@@ -135,7 +137,7 @@ def pdf_report(
     """
     check_month(year, month)
     try:
-        path = pdf.build_report_pdf(year, month)
+        path = pdf.build_report_pdf(year, month, request.user)
     except ImportError:
         messages.error(request, PDF_HINT)
         return redirect("reports:month", year=year, month=month)
@@ -150,7 +152,7 @@ def pdf_year_report(request: HttpRequest, year: int) -> FileResponse | HttpRespo
     """PDF-отчёт за год: собирает файл в media и отдаёт его на скачивание."""
     check_year(year)
     try:
-        path = pdf.build_year_pdf(year)
+        path = pdf.build_year_pdf(year, request.user)
     except ImportError:
         messages.error(request, PDF_HINT)
         return redirect("reports:year", year=year)
@@ -163,7 +165,7 @@ def pdf_year_report(request: HttpRequest, year: int) -> FileResponse | HttpRespo
 
 def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
     """Общий рендер отчёта за месяц (индекс и конкретный месяц)."""
-    report = queries.month_report(year, month)
+    report = queries.month_report(year, month, request.user)
     prev_year, prev_month = shift_month(year, month, -1)
     next_year, next_month = shift_month(year, month, 1)
 
@@ -175,10 +177,10 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
         "next_year": next_year,
         "next_month": next_month,
         "next_title": month_title(next_year, next_month),
-        # На границах диапазона стрелки ведут в 404 — прячем их.
+        # На границах диапазона стрелки ведут в 404 - прячем их.
         "can_prev": (year, month) > (MIN_YEAR, 1),
         "can_next": (year, month) < (MAX_YEAR, 12),
-        # float — только для JSON: Chart.js принимает числа, а json_script
+        # float - только для JSON: Chart.js принимает числа, а json_script
         # сериализовал бы Decimal строкой. В таблицах суммы остаются Decimal.
         "chart": {
             "labels": [row.category.name for row in report.rows],

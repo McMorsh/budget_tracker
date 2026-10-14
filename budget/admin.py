@@ -1,4 +1,4 @@
-"""Админка приложения «Бюджет»."""
+"""Админка приложения "Бюджет"."""
 from django.contrib import admin
 
 from .models import Allocation, BudgetMonth, Category
@@ -6,9 +6,9 @@ from .models import Allocation, BudgetMonth, Category
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "position", "is_active"]
+    list_display = ["name", "owner", "position", "is_active"]
     list_editable = ["position", "is_active"]
-    list_filter = ["is_active"]
+    list_filter = ["is_active", "owner"]
     search_fields = ["name"]
 
 
@@ -20,8 +20,8 @@ class AllocationInline(admin.TabularInline):
 
 @admin.register(BudgetMonth)
 class BudgetMonthAdmin(admin.ModelAdmin):
-    list_display = ["month_title", "income", "savings_percent", "plan_total"]
-    list_filter = ["year"]
+    list_display = ["month_title", "owner", "income", "savings_percent", "plan_total"]
+    list_filter = ["year", "owner"]
     inlines = [AllocationInline]
 
     @admin.display(description="месяц")

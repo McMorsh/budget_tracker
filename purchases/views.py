@@ -1,9 +1,9 @@
-"""Представления раздела «Покупки»: цели, взносы и прогресс.
+"""Представления раздела "Покупки": цели, взносы и прогресс.
 
-Добавление целей и взносов, удаления — обычные POST с редиректом (PRG).
-Правка строк — инлайн через JSON-эндпоинты; после неё список или карточка
+Добавление целей и взносов, удаления - обычные POST с редиректом (PRG).
+Правка строк - инлайн через JSON-эндпоинты; после неё список или карточка
 цели перезапрашиваются с сервера, поэтому порядок целей, прогресс и итоги
-всегда совпадают с базой (тот же приём, что в «Тратах»).
+всегда совпадают с базой (тот же приём, что в "Тратах").
 """
 from decimal import Decimal
 
@@ -19,7 +19,7 @@ from .forms import ContributionForm, PlannedPurchaseForm
 from .models import PlannedPurchase, PurchaseContribution
 from .queries import goals_with_contributed
 
-# Статусы, которые показываются в списке активных целей; «куплено» —
+# Статусы, которые показываются в списке активных целей; "куплено" -
 # отдельной таблицей, у неё свой порядок (по дате покупки).
 ACTIVE_STATUSES = [PlannedPurchase.Status.WANTED, PlannedPurchase.Status.SAVING]
 
@@ -28,13 +28,17 @@ def index(request: HttpRequest) -> HttpResponse:
     """Список целей: активные и уже купленные, плюс форма добавления."""
     form = PlannedPurchaseForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        purchase = form.save()
+        purchase = form.save(commit=False)
+        purchase.owner = request.user
+        purchase.save()
         messages.success(request, f"Цель добавлена: {purchase.title}.")
         return redirect("purchases:index")
 
-    goals = list(goals_with_contributed().filter(status__in=ACTIVE_STATUSES))
+    goals = list(
+        goals_with_contributed(request.user).filter(status__in=ACTIVE_STATUSES)
+    )
     bought = list(
-        goals_with_contributed()
+        goals_with_contributed(request.user)
         .filter(status=PlannedPurchase.Status.BOUGHT)
         .order_by("-bought_at", "-pk")
     )
@@ -55,7 +59,7 @@ def index(request: HttpRequest) -> HttpResponse:
 
 def detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Карточка цели: прогресс, взносы и форма нового взноса."""
-    goal = get_object_or_404(goals_with_contributed(), pk=pk)
+    goal = get_object_or_404(goals_with_contributed(request.user), pk=pk)
     form = ContributionForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         contribution = form.save(commit=False)
@@ -82,9 +86,9 @@ def detail(request: HttpRequest, pk: int) -> HttpResponse:
 def purchase_update(request: HttpRequest, pk: int) -> JsonResponse:
     """Инлайн-правка цели (AJAX): название, стоимость, приоритет, статус.
 
-    Ответ — `{"ok": true}`; ошибки — 400 с `error` и `field`, чужой pk — 404.
+    Ответ - `{"ok": true}`; ошибки - 400 с `error` и `field`, чужая цель - 404.
     """
-    goal = get_object_or_404(PlannedPurchase, pk=pk)
+    goal = get_object_or_404(PlannedPurchase, pk=pk, owner=request.user)
     payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
@@ -102,11 +106,11 @@ def purchase_update(request: HttpRequest, pk: int) -> JsonResponse:
 def purchase_status(request: HttpRequest, pk: int) -> JsonResponse:
     """Смена статуса кнопками списка или карточки (AJAX).
 
-    Дату покупки проставляет или снимает `PlannedPurchase.save()` — держать
-    эту логику в двух местах не нужно. Ответ — `{"ok": true}`; ошибки —
-    400 с `error` и `field`, чужой pk — 404.
+    Дату покупки проставляет или снимает `PlannedPurchase.save()` - держать
+    эту логику в двух местах не нужно. Ответ - `{"ok": true}`; ошибки -
+    400 с `error` и `field`, чужая цель - 404.
     """
-    goal = get_object_or_404(PlannedPurchase, pk=pk)
+    goal = get_object_or_404(PlannedPurchase, pk=pk, owner=request.user)
     payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
@@ -125,7 +129,7 @@ def purchase_status(request: HttpRequest, pk: int) -> JsonResponse:
 @require_POST
 def purchase_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """Удаление цели вместе со взносами (каскадом)."""
-    goal = get_object_or_404(PlannedPurchase, pk=pk)
+    goal = get_object_or_404(PlannedPurchase, pk=pk, owner=request.user)
     title = goal.title
     goal.delete()
     messages.success(request, f"Цель удалена: {title}.")
@@ -136,9 +140,11 @@ def purchase_delete(request: HttpRequest, pk: int) -> HttpResponse:
 def contribution_update(request: HttpRequest, pk: int) -> JsonResponse:
     """Инлайн-правка взноса (AJAX).
 
-    Ответ — `{"ok": true}`; ошибки — 400 с `error` и `field`, чужой pk — 404.
+    Ответ - `{"ok": true}`; ошибки - 400 с `error` и `field`, чужой взнос - 404.
     """
-    item = get_object_or_404(PurchaseContribution, pk=pk)
+    item = get_object_or_404(
+        PurchaseContribution, pk=pk, purchase__owner=request.user
+    )
     payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
@@ -155,7 +161,9 @@ def contribution_update(request: HttpRequest, pk: int) -> JsonResponse:
 @require_POST
 def contribution_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """Удаление взноса с возвратом в карточку цели."""
-    item = get_object_or_404(PurchaseContribution, pk=pk)
+    item = get_object_or_404(
+        PurchaseContribution, pk=pk, purchase__owner=request.user
+    )
     purchase_pk = item.purchase.pk
     item.delete()
     messages.success(request, "Взнос удалён.")

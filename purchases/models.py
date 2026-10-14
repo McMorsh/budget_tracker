@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
@@ -19,6 +20,12 @@ class PlannedPurchase(models.Model):
         SAVING = "saving", "коплю"
         BOUGHT = "bought", "куплено"
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="purchases",
+        verbose_name="владелец",
+    )
     title = models.CharField("что покупаем", max_length=200)
     amount = models.DecimalField(
         "стоимость, ₽",
@@ -57,7 +64,7 @@ class PlannedPurchase(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         """Держит дату покупки в согласии со статусом.
 
-        Куплено — проставляем дату (если ещё нет), любой другой статус —
+        Куплено - проставляем дату (если ещё нет), любой другой статус -
         снимаем: поле не редактируется вручную, лишних полей в формах нет.
         """
         if self.status == self.Status.BOUGHT:
@@ -72,7 +79,7 @@ class PlannedPurchase(models.Model):
         """Сколько уже накоплено на цель.
 
         Если queryset аннотирован `contributed_total` (так делает обзорная
-        страница), берём готовое значение — иначе считаем запросом.
+        страница), берём готовое значение - иначе считаем запросом.
         """
         annotated = getattr(self, "contributed_total", None)
         if annotated is not None:
@@ -89,7 +96,7 @@ class PlannedPurchase(models.Model):
 
     @property
     def progress_percent(self) -> int:
-        """Прогресс накопления, % (0–100).
+        """Прогресс накопления, % (0-100).
 
         Дробные проценты отбрасываются: полоса должна доходить до 100 %
         только при полном накоплении.

@@ -1,7 +1,7 @@
-"""Представления раздела «Бюджет»: распределение месяца и категории.
+"""Представления раздела "Бюджет": распределение месяца и категории.
 
 Категории редактируются прямо в списке (AJAX), план месяца сохраняется обычной
-формой: доход, «отложить» и доли категорий. Плановые суммы в рублях —
+формой: доход, "отложить" и доли категорий. Плановые суммы в рублях -
 производные: доход × доля (округление до копеек).
 """
 import json
@@ -72,31 +72,35 @@ def _add_balance_warning(request: HttpRequest, budget_month: BudgetMonth) -> Non
     if gap > 0:
         messages.warning(
             request,
-            f"Σ долей = {total} % — до 100 % не хватает {gap} %.",
+            f"Σ долей = {total} % - до 100 % не хватает {gap} %.",
         )
     else:
         excess = money(budget_month.income * (-gap) / 100)
         messages.warning(
             request,
-            f"Σ долей = {total} % — перерасход плана на "
+            f"Σ долей = {total} % - перерасход плана на "
             f"{number_format(excess, decimal_pos=2, force_grouping=True)} ₽.",
         )
 
 
 def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
-    """Экран месяца: доход, доли категорий и «отложить»."""
-    budget_month = BudgetMonth.objects.filter(year=year, month=month).first()
+    """Экран месяца: доход, доли категорий и "отложить"."""
+    budget_month = BudgetMonth.objects.filter(
+        year=year, month=month, owner=request.user
+    ).first()
 
     category_filter = Q(is_active=True)
     if budget_month is not None:
         category_filter |= Q(allocations__budget_month=budget_month)
-    categories = list(Category.objects.filter(category_filter).distinct())
+    categories = list(
+        Category.objects.filter(category_filter, owner=request.user).distinct()
+    )
 
     if request.method == "POST":
         form = MonthPlanForm(request.POST, categories=categories)
         if form.is_valid():
             budget_month, _created = BudgetMonth.objects.get_or_create(
-                year=year, month=month
+                year=year, month=month, owner=request.user
             )
             budget_month.income = form.cleaned_data["income"]
             budget_month.savings_percent = form.cleaned_data["savings_percent"]
@@ -158,7 +162,9 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
 
     prev_year, prev_month = shift_month(year, month, -1)
     next_year, next_month = shift_month(year, month, 1)
-    copy_source = BudgetMonth.objects.filter(year=prev_year, month=prev_month).first()
+    copy_source = BudgetMonth.objects.filter(
+        year=prev_year, month=prev_month, owner=request.user
+    ).first()
 
     context = {
         "form": form,
@@ -172,7 +178,7 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
         "next_year": next_year,
         "next_month": next_month,
         "next_title": month_title(next_year, next_month),
-        # На границах диапазона стрелки ведут в 404 — прячем их.
+        # На границах диапазона стрелки ведут в 404 - прячем их.
         "can_prev": (year, month) > (MIN_YEAR, 1),
         "can_next": (year, month) < (MAX_YEAR, 12),
         "copy_source": copy_source,
@@ -193,12 +199,16 @@ def month_copy(request: HttpRequest, year: int, month: int) -> HttpResponse:
     check_month(year, month)
 
     prev_year, prev_month = shift_month(year, month, -1)
-    source = BudgetMonth.objects.filter(year=prev_year, month=prev_month).first()
+    source = BudgetMonth.objects.filter(
+        year=prev_year, month=prev_month, owner=request.user
+    ).first()
     if source is None:
-        messages.warning(request, "Предыдущий месяц не заполнен — копировать нечего.")
+        messages.warning(request, "Предыдущий месяц не заполнен - копировать нечего.")
         return redirect("budget:month", year=year, month=month)
 
-    target, _created = BudgetMonth.objects.get_or_create(year=year, month=month)
+    target, _created = BudgetMonth.objects.get_or_create(
+        year=year, month=month, owner=request.user
+    )
     with transaction.atomic():
         target.income = source.income
         target.savings_percent = source.savings_percent
@@ -214,35 +224,39 @@ def month_copy(request: HttpRequest, year: int, month: int) -> HttpResponse:
                 for allocation in Allocation.objects.filter(budget_month=source)
             ]
         )
-    messages.success(request, f"Скопировано из «{source.title}».")
+    messages.success(request, f'Скопировано из "{source.title}".')
     return redirect("budget:month", year=year, month=month)
 
 
 def category_list(request: HttpRequest) -> HttpResponse:
     """Список категорий: активные (с перетаскиванием) и архив."""
     context = {
-        "active_categories": Category.objects.filter(is_active=True),
-        "archived_categories": Category.objects.filter(is_active=False),
+        "active_categories": Category.objects.filter(
+            is_active=True, owner=request.user
+        ),
+        "archived_categories": Category.objects.filter(
+            is_active=False, owner=request.user
+        ),
     }
     return render(request, "budget/category_list.html", context)
 
 
 @require_POST
 def category_create(request: HttpRequest) -> JsonResponse:
-    """Добавляет категорию (AJAX): порядок — в конец списка."""
+    """Добавляет категорию (AJAX): порядок - в конец списка."""
     payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
-    form = CategoryForm(payload)
+    form = CategoryForm(payload, owner=request.user)
     if not form.is_valid():
         _, message = first_error(form, "Проверьте название")
         return JsonResponse({"error": message}, status=400)
 
     category = form.save(commit=False)
-    last_position = Category.objects.aggregate(max_position=Max("position"))[
-        "max_position"
-    ]
+    last_position = Category.objects.filter(owner=request.user).aggregate(
+        max_position=Max("position")
+    )["max_position"]
     category.position = 0 if last_position is None else last_position + 1
     category.save()
     return JsonResponse(
@@ -268,11 +282,13 @@ def category_rename(request: HttpRequest) -> JsonResponse:
             {"error": 'Ожидается JSON вида {"id": 1, "name": "…"}'}, status=400
         )
 
-    category = Category.objects.filter(pk=pk).first()
+    category = Category.objects.filter(pk=pk, owner=request.user).first()
     if category is None:
         return JsonResponse({"error": "Категория не найдена"}, status=404)
 
-    form = CategoryForm({"name": payload.get("name", "")}, instance=category)
+    form = CategoryForm(
+        {"name": payload.get("name", "")}, instance=category, owner=request.user
+    )
     if not form.is_valid():
         _, message = first_error(form, "Проверьте название")
         return JsonResponse({"error": message}, status=400)
@@ -294,21 +310,21 @@ def category_reorder(request: HttpRequest) -> JsonResponse:
 
     with transaction.atomic():
         for position, pk in enumerate(ids):
-            Category.objects.filter(pk=pk).update(position=position)
+            Category.objects.filter(pk=pk, owner=request.user).update(position=position)
     return JsonResponse({"ok": True, "count": len(ids)})
 
 
 @require_POST
 def category_toggle(request: HttpRequest, pk: int) -> HttpResponse:
     """Архивация и возврат из архива: удаления нет, история трат сохраняется."""
-    category = get_object_or_404(Category, pk=pk)
+    category = get_object_or_404(Category, pk=pk, owner=request.user)
     category.is_active = not category.is_active
     category.save(update_fields=["is_active"])
     if category.is_active:
-        messages.success(request, f"Категория «{category.name}» возвращена в работу.")
+        messages.success(request, f'Категория "{category.name}" возвращена в работу.')
     else:
         messages.info(
             request,
-            f"Категория «{category.name}» в архиве; история трат сохранена.",
+            f'Категория "{category.name}" в архиве; история трат сохранена.',
         )
     return redirect("budget:categories")

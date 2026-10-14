@@ -1,4 +1,4 @@
-"""Тесты моделей и экранов раздела «Траты»."""
+"""Тесты моделей и экранов раздела "Траты"."""
 import json
 from datetime import date
 from decimal import Decimal
@@ -16,28 +16,41 @@ from budget.models import Allocation, BudgetMonth, Category
 from budget.utils import month_title, shift_month
 
 from .models import Transaction
-from .queries import transactions_for_month, transactions_for_period
+from .queries import category_overrun, transactions_for_month, transactions_for_period
 
 
 class TransactionTests(TestCase):
-    def setUp(self):
-        self.category = Category.objects.create(name="Продукты")
+    """Модель траты: значения по умолчанию, валидаторы и выборки."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+        cls.category = Category.objects.create(owner=cls.user, name="Продукты")
 
     def test_default_date_is_today(self):
-        item = Transaction.objects.create(category=self.category, amount=Decimal("100"))
+        item = Transaction.objects.create(
+            owner=self.user, category=self.category, amount=Decimal("100")
+        )
         self.assertEqual(item.date, timezone.localdate())
 
     def test_non_positive_amount_is_rejected(self):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Transaction.objects.create(category=self.category, amount=Decimal("0"))
+                Transaction.objects.create(
+                    owner=self.user, category=self.category, amount=Decimal("0")
+                )
 
     def test_amount_validator_rejects_non_positive(self):
         # Валидатор ловит неверную сумму в формах (админка, правка), а не только в БД.
         for amount in [Decimal("0"), Decimal("-5")]:
             with self.subTest(amount=amount):
                 item = Transaction(
-                    category=self.category, amount=amount, date=date(2026, 9, 1)
+                    owner=self.user,
+                    category=self.category,
+                    amount=amount,
+                    date=date(2026, 9, 1),
                 )
                 with self.assertRaises(ValidationError) as ctx:
                     item.full_clean()
@@ -47,7 +60,10 @@ class TransactionTests(TestCase):
         for value in [date(1800, 1, 1), date(2200, 1, 1)]:
             with self.subTest(value=value):
                 item = Transaction(
-                    category=self.category, amount=Decimal("100"), date=value
+                    owner=self.user,
+                    category=self.category,
+                    amount=Decimal("100"),
+                    date=value,
                 )
                 with self.assertRaises(ValidationError) as ctx:
                     item.full_clean()
@@ -55,28 +71,47 @@ class TransactionTests(TestCase):
 
     def test_for_month_filters_by_calendar_month(self):
         Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 30)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 30),
         )
         Transaction.objects.create(
-            category=self.category, amount=Decimal("200"), date=date(2026, 10, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("200"),
+            date=date(2026, 10, 1),
         )
         Transaction.objects.create(
-            category=self.category, amount=Decimal("300"), date=date(2026, 10, 31)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("300"),
+            date=date(2026, 10, 31),
         )
-        self.assertEqual(transactions_for_month(2026, 10).count(), 2)
+        self.assertEqual(transactions_for_month(2026, 10, self.user).count(), 2)
 
     def test_for_period(self):
         Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 10, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 10, 1),
         )
         Transaction.objects.create(
-            category=self.category, amount=Decimal("200"), date=date(2026, 10, 15)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("200"),
+            date=date(2026, 10, 15),
         )
-        period = transactions_for_period(date(2026, 10, 2), date(2026, 10, 20))
+        period = transactions_for_period(
+            date(2026, 10, 2), date(2026, 10, 20), self.user
+        )
         self.assertEqual(period.count(), 1)
 
     def test_category_with_history_is_protected(self):
-        Transaction.objects.create(category=self.category, amount=Decimal("100"))
+        Transaction.objects.create(
+            owner=self.user, category=self.category, amount=Decimal("100")
+        )
         with self.assertRaises(ProtectedError):
             self.category.delete()
 
@@ -89,7 +124,7 @@ class TransactionViewsTests(TestCase):
         cls.user = User.objects.create_user(
             username="owner", password="test-pass-123"
         )
-        cls.category = Category.objects.create(name="Продукты")
+        cls.category = Category.objects.create(owner=cls.user, name="Продукты")
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -111,7 +146,9 @@ class TransactionViewsTests(TestCase):
         self.assertTrue(response["Location"].startswith(reverse("login")))
 
     def test_edit_and_delete_require_login(self):
-        item = Transaction.objects.create(category=self.category, amount=Decimal("100"))
+        item = Transaction.objects.create(
+            owner=self.user, category=self.category, amount=Decimal("100")
+        )
         self.client.logout()
         for url in [
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -132,7 +169,7 @@ class TransactionViewsTests(TestCase):
                 self.assertEqual(response.status_code, 404)
 
     def test_out_of_range_year_is_404(self):
-        # Крайние годы увели бы ссылки «назад/вперёд» за пределы дат Python — 500.
+        # Крайние годы увели бы ссылки "назад/вперёд" за пределы дат Python - 500.
         for year, month in [(0, 1), (1899, 12), (2101, 1), (10000, 1)]:
             with self.subTest(year=year):
                 response = self.client.get(
@@ -150,12 +187,14 @@ class TransactionViewsTests(TestCase):
 
     def test_month_page_shows_only_its_transactions(self):
         Transaction.objects.create(
+            owner=self.user,
             category=self.category,
             amount=Decimal("100"),
             date=date(2026, 9, 5),
             comment="Лента",
         )
         Transaction.objects.create(
+            owner=self.user,
             category=self.category,
             amount=Decimal("200"),
             date=date(2026, 10, 5),
@@ -169,10 +208,16 @@ class TransactionViewsTests(TestCase):
 
     def test_month_page_shows_total_and_count(self):
         Transaction.objects.create(
-            category=self.category, amount=Decimal("1234.50"), date=date(2026, 9, 10)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("1234.50"),
+            date=date(2026, 9, 10),
         )
         Transaction.objects.create(
-            category=self.category, amount=Decimal("765.50"), date=date(2026, 9, 11)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("765.50"),
+            date=date(2026, 9, 11),
         )
 
         response = self.client.get(self.month_url())
@@ -333,6 +378,21 @@ class TransactionViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Transaction.objects.exists())
 
+    def test_add_rejects_foreign_category(self):
+        other = User.objects.create_user(username="other", password="test-pass-123")
+        foreign = Category.objects.create(owner=other, name="Чужая")
+        response = self.client.post(
+            self.month_url(),
+            {
+                "date": "2026-09-10",
+                "category": foreign.pk,
+                "amount": "100",
+                "comment": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Transaction.objects.exists())
+
     def test_add_rejects_missing_fields(self):
         response = self.client.post(self.month_url(), {})
         self.assertEqual(response.status_code, 200)
@@ -343,7 +403,7 @@ class TransactionViewsTests(TestCase):
     def make_plan(self, percent: int = 10) -> None:
         """Бюджет на сентябрь 2026 и доля категории (при 10 % план 1 000 ₽)."""
         month = BudgetMonth.objects.create(
-            year=2026, month=9, income=Decimal("10000")
+            owner=self.user, year=2026, month=9, income=Decimal("10000")
         )
         Allocation.objects.create(
             budget_month=month, category=self.category, percent=percent
@@ -365,7 +425,7 @@ class TransactionViewsTests(TestCase):
         self.make_plan()  # план 1 000 ₽
         response = self.add_transaction("1200")
         self.assertContains(response, "Трата добавлена")
-        self.assertContains(response, "Перерасход по категории «Продукты»")
+        self.assertContains(response, "Перерасход по категории &quot;Продукты&quot;")
         # Предупреждаем, но сохраняем.
         self.assertTrue(Transaction.objects.exists())
 
@@ -377,7 +437,10 @@ class TransactionViewsTests(TestCase):
     def test_add_ignores_transactions_of_other_months(self):
         self.make_plan()  # план сентября 1 000 ₽
         Transaction.objects.create(
-            category=self.category, amount=Decimal("600"), date=date(2026, 9, 30)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("600"),
+            date=date(2026, 9, 30),
         )
         # Октябрь без бюджета: сентябрьские траты в его факт не попадают.
         response = self.client.post(
@@ -402,7 +465,9 @@ class TransactionViewsTests(TestCase):
         self.assertNotContains(response, "Перерасход")
 
     def test_add_has_no_warning_when_category_has_no_plan(self):
-        BudgetMonth.objects.create(year=2026, month=9, income=Decimal("10000"))
+        BudgetMonth.objects.create(
+            owner=self.user, year=2026, month=9, income=Decimal("10000")
+        )
         response = self.add_transaction("1200")
         self.assertNotContains(response, "Перерасход")
 
@@ -414,7 +479,10 @@ class TransactionViewsTests(TestCase):
     def test_update_reports_overrun_warning(self):
         self.make_plan()
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("900"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("900"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -429,12 +497,15 @@ class TransactionViewsTests(TestCase):
         self.assertIn("Перерасход", response.json()["warning"])
 
     def test_update_warning_uses_new_category(self):
-        self.make_plan()  # план «Продукты» 1 000 ₽
-        other = Category.objects.create(name="Кафе")
+        self.make_plan()  # план "Продукты" 1 000 ₽
+        other = Category.objects.create(owner=self.user, name="Кафе")
         item = Transaction.objects.create(
-            category=other, amount=Decimal("900"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=other,
+            amount=Decimal("900"),
+            date=date(2026, 9, 1),
         )
-        # Переносим трату в «Продукты» — перерасход считается по новой категории.
+        # Переносим трату в "Продукты" - перерасход считается по новой категории.
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
             {
@@ -450,7 +521,10 @@ class TransactionViewsTests(TestCase):
     def test_update_has_no_warning_within_plan(self):
         self.make_plan()
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -480,21 +554,30 @@ class TransactionViewsTests(TestCase):
     # --- архивные категории ---
 
     def test_archived_category_not_offered_for_new_transactions(self):
-        archived = Category.objects.create(name="Старое", is_active=False)
+        archived = Category.objects.create(
+            owner=self.user, name="Старое", is_active=False
+        )
         response = self.client.get(self.month_url())
         self.assertNotContains(response, f'<option value="{archived.pk}">')
 
     def test_archived_category_stays_in_history(self):
-        archived = Category.objects.create(name="Старое", is_active=False)
+        archived = Category.objects.create(
+            owner=self.user, name="Старое", is_active=False
+        )
         Transaction.objects.create(
-            category=archived, amount=Decimal("100"), date=date(2026, 9, 3)
+            owner=self.user,
+            category=archived,
+            amount=Decimal("100"),
+            date=date(2026, 9, 3),
         )
         response = self.client.get(self.month_url())
         self.assertContains(response, "Старое")
         self.assertContains(response, "(в архиве)")
 
     def test_add_rejects_archived_category(self):
-        archived = Category.objects.create(name="Старое", is_active=False)
+        archived = Category.objects.create(
+            owner=self.user, name="Старое", is_active=False
+        )
         response = self.client.post(
             self.month_url(),
             {
@@ -511,7 +594,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_transaction(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -536,7 +622,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_reports_field_error(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -555,9 +644,14 @@ class TransactionViewsTests(TestCase):
         self.assertEqual(item.amount, Decimal("100.00"))
 
     def test_update_allows_archived_category_of_same_transaction(self):
-        archived = Category.objects.create(name="Старое", is_active=False)
+        archived = Category.objects.create(
+            owner=self.user, name="Старое", is_active=False
+        )
         item = Transaction.objects.create(
-            category=archived, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=archived,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -571,9 +665,14 @@ class TransactionViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_update_rejects_foreign_archived_category(self):
-        archived = Category.objects.create(name="Старое", is_active=False)
+        archived = Category.objects.create(
+            owner=self.user, name="Старое", is_active=False
+        )
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -588,9 +687,12 @@ class TransactionViewsTests(TestCase):
         self.assertEqual(response.json()["field"], "category")
 
     def test_update_normalizes_amount(self):
-        # «1e3» — валидный Decimal для формы; ответ и БД должны быть «1000.00».
+        # "1e3" - валидный Decimal для формы; ответ и БД должны быть "1000.00".
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -608,7 +710,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_can_move_transaction_to_other_month(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.post_json(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -624,7 +729,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_rejects_bad_json(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.client.post(
             reverse("expenses:transaction_update", args=[item.pk]),
@@ -635,7 +743,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_rejects_non_object_json(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         url = reverse("expenses:transaction_update", args=[item.pk])
         for body in ["null", json.dumps([1, 2])]:
@@ -647,7 +758,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_requires_csrf_token(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.user)
@@ -676,7 +790,10 @@ class TransactionViewsTests(TestCase):
 
     def test_update_rejects_get(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.client.get(
             reverse("expenses:transaction_update", args=[item.pk])
@@ -693,7 +810,10 @@ class TransactionViewsTests(TestCase):
 
     def test_delete_transaction(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.client.post(
             reverse("expenses:transaction_delete", args=[item.pk])
@@ -703,7 +823,10 @@ class TransactionViewsTests(TestCase):
 
     def test_delete_rejects_get(self):
         item = Transaction.objects.create(
-            category=self.category, amount=Decimal("100"), date=date(2026, 9, 1)
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
         )
         response = self.client.get(
             reverse("expenses:transaction_delete", args=[item.pk])
@@ -715,3 +838,114 @@ class TransactionViewsTests(TestCase):
             reverse("expenses:transaction_delete", args=[999])
         )
         self.assertEqual(response.status_code, 404)
+
+
+class IsolationTests(TestCase):
+    """Изоляция данных: чужие траты и планы не влияют на владельца."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="owner", password="test-pass-123"
+        )
+        cls.other = User.objects.create_user(
+            username="intruder", password="test-pass-456"
+        )
+        # Категории разных пользователей могут называться одинаково.
+        cls.category = Category.objects.create(owner=cls.user, name="Продукты")
+        cls.other_category = Category.objects.create(owner=cls.other, name="Продукты")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def month_url(self, year: int = 2026, month: int = 9) -> str:
+        """Ссылка на экран месяца."""
+        return reverse("expenses:month", args=[year, month])
+
+    def test_month_page_hides_foreign_transactions(self):
+        """В списке месяца видны только траты владельца."""
+        Transaction.objects.create(
+            owner=self.other,
+            category=self.other_category,
+            amount=Decimal("300"),
+            date=date(2026, 9, 5),
+            comment="Чужая покупка",
+        )
+        Transaction.objects.create(
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 6),
+            comment="Своя покупка",
+        )
+        response = self.client.get(self.month_url())
+        self.assertContains(response, "Своя покупка")
+        self.assertNotContains(response, "Чужая покупка")
+        # Итоги месяца считаются только по тратам владельца.
+        self.assertContains(response, 'id="month-count">1<')
+
+    def test_index_hides_foreign_transactions(self):
+        """Страница текущего месяца не показывает чужие траты."""
+        Transaction.objects.create(
+            owner=self.other,
+            category=self.other_category,
+            amount=Decimal("300"),
+            date=timezone.localdate(),
+            comment="Чужая покупка",
+        )
+        response = self.client.get(reverse("expenses:index"))
+        self.assertNotContains(response, "Чужая покупка")
+
+    def test_foreign_transaction_update_is_404(self):
+        """JSON-правка чужой траты недоступна."""
+        item = Transaction.objects.create(
+            owner=self.other,
+            category=self.other_category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
+        )
+        response = self.client.post(
+            reverse("expenses:transaction_update", args=[item.pk]),
+            data=json.dumps(
+                {
+                    "date": "2026-09-01",
+                    "category": self.other_category.pk,
+                    "amount": "999",
+                    "comment": "",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 404)
+        item.refresh_from_db()
+        self.assertEqual(item.amount, Decimal("100.00"))
+
+    def test_foreign_transaction_delete_is_404(self):
+        """Удаление чужой траты недоступно."""
+        item = Transaction.objects.create(
+            owner=self.other,
+            category=self.other_category,
+            amount=Decimal("100"),
+            date=date(2026, 9, 1),
+        )
+        response = self.client.post(
+            reverse("expenses:transaction_delete", args=[item.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Transaction.objects.filter(pk=item.pk).exists())
+
+    def test_overrun_ignores_foreign_budget(self):
+        """Чужой бюджетный месяц не даёт предупреждения о перерасходе."""
+        month = BudgetMonth.objects.create(
+            owner=self.other, year=2026, month=9, income=Decimal("10000")
+        )
+        Allocation.objects.create(
+            budget_month=month, category=self.other_category, percent=10
+        )
+        item = Transaction.objects.create(
+            owner=self.user,
+            category=self.category,
+            amount=Decimal("1200"),
+            date=date(2026, 9, 10),
+        )
+        self.assertIsNone(category_overrun(item))

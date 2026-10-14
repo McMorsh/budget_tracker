@@ -1,10 +1,10 @@
-"""Представления раздела «Траты»: ввод и список за месяц.
+"""Представления раздела "Траты": ввод и список за месяц.
 
-Месяц траты определяется её датой (отдельного поля «месяц» нет): форма
+Месяц траты определяется её датой (отдельного поля "месяц" нет): форма
 ввода подставляет дату по просматриваемому месяцу, а сохранение уводит
 на месяц, в который попала дата.
 
-Добавление и удаление — обычные POST с редиректом (PRG). Правка строки —
+Добавление и удаление - обычные POST с редиректом (PRG). Правка строки -
 инлайн через JSON-эндпоинт; после неё страница перезапрашивает таблицу,
 поэтому порядок строк и итоги всегда совпадают с базой.
 """
@@ -44,8 +44,8 @@ def month_detail(request: HttpRequest, year: int, month: int) -> HttpResponse:
 def _default_date(year: int, month: int) -> date:
     """Дата для быстрого ввода.
 
-    Текущий месяц — сегодняшний день; прошедший — последний день месяца
-    (обычно его и добирают задним числом); будущий — первое число.
+    Текущий месяц - сегодняшний день; прошедший - последний день месяца
+    (обычно его и добирают задним числом); будущий - первое число.
     """
     today = timezone.localdate()
     if (year, month) == (today.year, today.month):
@@ -56,13 +56,13 @@ def _default_date(year: int, month: int) -> date:
 
 
 def _overrun_warning(item: Transaction) -> str:
-    """Предупреждение о перерасходе плана категории; пустая строка — нет."""
+    """Предупреждение о перерасходе плана категории; пустая строка - нет."""
     overrun = category_overrun(item)
     if overrun is None:
         return ""
     plan, fact = overrun
     return (
-        f"Перерасход по категории «{item.category.name}»: "
+        f'Перерасход по категории "{item.category.name}": '
         f"план {rubles(plan, 2)}, потрачено {rubles(fact, 2)}."
     )
 
@@ -70,21 +70,25 @@ def _overrun_warning(item: Transaction) -> str:
 def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
     """Форма быстрого ввода и список трат месяца."""
     form = TransactionForm(
-        request.POST or None, initial={"date": _default_date(year, month)}
+        request.POST or None,
+        initial={"date": _default_date(year, month)},
+        owner=request.user,
     )
     if request.method == "POST" and form.is_valid():
         item = form.save()
         messages.success(
             request,
-            f"Трата добавлена: {rubles(item.amount, 2)} — {item.category.name}.",
+            f"Трата добавлена: {rubles(item.amount, 2)} - {item.category.name}.",
         )
-        # Перерасход — только предупреждение, трата уже сохранена.
+        # Перерасход - только предупреждение, трата уже сохранена.
         warning = _overrun_warning(item)
         if warning:
             messages.warning(request, warning)
         return redirect("expenses:month", item.date.year, item.date.month)
 
-    items = list(transactions_for_month(year, month).select_related("category"))
+    items = list(
+        transactions_for_month(year, month, request.user).select_related("category")
+    )
     total = sum((item.amount for item in items), Decimal("0"))
 
     prev_year, prev_month = shift_month(year, month, -1)
@@ -101,7 +105,7 @@ def _month_screen(request: HttpRequest, year: int, month: int) -> HttpResponse:
         "next_year": next_year,
         "next_month": next_month,
         "next_title": month_title(next_year, next_month),
-        # На границах диапазона стрелки ведут в 404 — прячем их.
+        # На границах диапазона стрелки ведут в 404 - прячем их.
         "can_prev": (year, month) > (MIN_YEAR, 1),
         "can_next": (year, month) < (MAX_YEAR, 12),
         "items": items,
@@ -116,12 +120,16 @@ def transaction_update(request: HttpRequest, pk: int) -> JsonResponse:
     """Инлайн-правка траты (AJAX)."""
     # select_related: форма в __init__ обращается к instance.category
     # (архивную категорию нужно оставить доступной).
-    item = get_object_or_404(Transaction.objects.select_related("category"), pk=pk)
+    item = get_object_or_404(
+        Transaction.objects.select_related("category"),
+        pk=pk,
+        owner=request.user,
+    )
     payload = json_payload(request)
     if payload is None:
         return JsonResponse({"error": "Ожидается JSON-объект"}, status=400)
 
-    form = TransactionForm(payload, instance=item)
+    form = TransactionForm(payload, instance=item, owner=request.user)
     if not form.is_valid():
         field, error = first_error(form)
         return JsonResponse({"error": error, "field": field}, status=400)
@@ -150,7 +158,7 @@ def transaction_update(request: HttpRequest, pk: int) -> JsonResponse:
 @require_POST
 def transaction_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """Удаление траты с возвратом на месяц, в котором она была."""
-    item = get_object_or_404(Transaction, pk=pk)
+    item = get_object_or_404(Transaction, pk=pk, owner=request.user)
     year, month = item.date.year, item.date.month
     item.delete()
     messages.success(request, "Трата удалена.")

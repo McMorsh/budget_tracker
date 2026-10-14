@@ -1,12 +1,13 @@
 """Модели бюджета: категории, месяцы и распределение дохода.
 
-Деньги — только DecimalField, валюта одна (₽).
-План распределения хранится в процентах от дохода (включая «отложить»);
-рубли — производные: доход месяца × доля, округление до копеек.
+Деньги - только DecimalField, валюта одна (₽).
+План распределения хранится в процентах от дохода (включая "отложить");
+рубли - производные: доход месяца × доля, округление до копеек.
 """
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
@@ -16,7 +17,7 @@ from .utils import MAX_YEAR, MIN_YEAR
 
 
 def money(value: Decimal) -> Decimal:
-    """Округляет сумму до копеек (половина — вверх)."""
+    """Округляет сумму до копеек (половина - вверх)."""
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
@@ -28,7 +29,13 @@ def planned_amount(income: Decimal, percent: int) -> Decimal:
 class Category(models.Model):
     """Категория трат (архивируется, а не удаляется)."""
 
-    name = models.CharField("название", max_length=100, unique=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="categories",
+        verbose_name="владелец",
+    )
+    name = models.CharField("название", max_length=100)
     position = models.PositiveSmallIntegerField("порядок", default=0)
     is_active = models.BooleanField("активна", default=True)
 
@@ -36,14 +43,27 @@ class Category(models.Model):
         verbose_name = "категория"
         verbose_name_plural = "категории"
         ordering = ["position", "name"]
+        constraints = [
+            # Имена уникальны в пределах владельца: у разных пользователей
+            # списки категорий независимы.
+            models.UniqueConstraint(
+                fields=["owner", "name"], name="unique_category_name_per_owner"
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.name
 
 
 class BudgetMonth(models.Model):
-    """Бюджетный месяц: доход и план «отложить»."""
+    """Бюджетный месяц: доход и план "отложить"."""
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="budget_months",
+        verbose_name="владелец",
+    )
     year = models.PositiveSmallIntegerField(
         "год",
         validators=[MinValueValidator(MIN_YEAR), MaxValueValidator(MAX_YEAR)],
@@ -59,7 +79,7 @@ class BudgetMonth(models.Model):
         default=Decimal("0"),
     )
     savings_percent = models.PositiveSmallIntegerField(
-        "«отложить», % от дохода",
+        '"отложить", % от дохода',
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
@@ -70,8 +90,8 @@ class BudgetMonth(models.Model):
         ordering = ["-year", "-month"]
         constraints = [
             models.UniqueConstraint(
-                fields=["year", "month"],
-                name="unique_budget_month",
+                fields=["owner", "year", "month"],
+                name="unique_budget_month_per_owner",
             ),
             models.CheckConstraint(
                 condition=Q(income__gte=0),
@@ -88,12 +108,12 @@ class BudgetMonth(models.Model):
 
     @property
     def title(self) -> str:
-        """Название месяца по-русски, например «Октябрь 2026»."""
+        """Название месяца по-русски, например "Октябрь 2026"."""
         return date_format(date(self.year, self.month, 1), "F Y")
 
     @property
     def savings_amount(self) -> Decimal:
-        """План «отложить» в рублях."""
+        """План "отложить" в рублях."""
         return planned_amount(self.income, self.savings_percent)
 
     @property
@@ -106,7 +126,7 @@ class BudgetMonth(models.Model):
 
     @property
     def planned_total_percent(self) -> int:
-        """Σ долей категорий и «отложить»; цель — 100."""
+        """Σ долей категорий и "отложить"; цель - 100."""
         return self.allocations_total_percent + self.savings_percent
 
 
@@ -146,7 +166,7 @@ class Allocation(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.category} — {self.percent} %"
+        return f"{self.category} - {self.percent} %"
 
     @property
     def amount(self) -> Decimal:

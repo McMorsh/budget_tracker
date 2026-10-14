@@ -1,4 +1,4 @@
-"""Тесты моделей и экранов раздела «Покупки»."""
+"""Тесты моделей и экранов раздела "Покупки"."""
 import json
 from datetime import date
 from decimal import Decimal
@@ -17,9 +17,13 @@ from .queries import goals_with_contributed
 class PlannedPurchaseTests(TestCase):
     """Тесты моделей: прогресс, валидаторы, статусы и порядок целей."""
 
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="owner", password="test-pass-123")
+
     def test_contributed_and_remaining(self):
         purchase = PlannedPurchase.objects.create(
-            title="Ноутбук", amount=Decimal("90000")
+            owner=self.user, title="Ноутбук", amount=Decimal("90000")
         )
         PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("15000"))
         PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("5000"))
@@ -29,34 +33,36 @@ class PlannedPurchaseTests(TestCase):
 
     def test_default_status_is_wanted(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("12000")
+            owner=self.user, title="Наушники", amount=Decimal("12000")
         )
         self.assertEqual(purchase.status, PlannedPurchase.Status.WANTED)
 
     def test_negative_amount_is_rejected(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             PlannedPurchase.objects.create(
-                title="Странная покупка", amount=Decimal("-1")
+                owner=self.user, title="Странная покупка", amount=Decimal("-1")
             )
 
     def test_amount_validator_rejects_negative(self):
         # Валидатор ловит неверную сумму в формах (админка, инлайн-правка),
         # а не только на уровне базы.
-        purchase = PlannedPurchase(title="Наушники", amount=Decimal("-1"))
+        purchase = PlannedPurchase(
+            owner=self.user, title="Наушники", amount=Decimal("-1")
+        )
         with self.assertRaises(ValidationError) as ctx:
             purchase.full_clean()
         self.assertIn("amount", ctx.exception.message_dict)
 
     def test_non_positive_contribution_is_rejected(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("12000")
+            owner=self.user, title="Наушники", amount=Decimal("12000")
         )
         with self.assertRaises(IntegrityError), transaction.atomic():
             PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("0"))
 
     def test_contribution_amount_validator_rejects_non_positive(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("12000")
+            owner=self.user, title="Наушники", amount=Decimal("12000")
         )
         for amount in [Decimal("0"), Decimal("-5")]:
             with self.subTest(amount=amount):
@@ -69,7 +75,7 @@ class PlannedPurchaseTests(TestCase):
 
     def test_contribution_date_validator_rejects_out_of_range(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("12000")
+            owner=self.user, title="Наушники", amount=Decimal("12000")
         )
         for value in [date(1800, 1, 1), date(2200, 1, 1)]:
             with self.subTest(value=value):
@@ -82,19 +88,19 @@ class PlannedPurchaseTests(TestCase):
 
     def test_contribution_date_accepts_boundaries(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("12000")
+            owner=self.user, title="Наушники", amount=Decimal("12000")
         )
         for value in [date(1900, 1, 1), date(2100, 12, 31)]:
             with self.subTest(value=value):
                 contribution = PurchaseContribution(
                     purchase=purchase, amount=Decimal("100"), date=value
                 )
-                # Границы диапазона включительны — исключений быть не должно.
+                # Границы диапазона включительны - исключений быть не должно.
                 contribution.full_clean()
 
     def test_progress_percent_is_capped_at_100(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("100")
+            owner=self.user, title="Наушники", amount=Decimal("100")
         )
         PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("150"))
         self.assertEqual(purchase.progress_percent, 100)
@@ -102,24 +108,29 @@ class PlannedPurchaseTests(TestCase):
 
     def test_progress_percent_of_free_goal_is_zero(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("0")
+            owner=self.user, title="Наушники", amount=Decimal("0")
         )
         self.assertEqual(purchase.progress_percent, 0)
 
     def test_progress_percent_truncates_fraction(self):
         purchase = PlannedPurchase.objects.create(
-            title="Наушники", amount=Decimal("300")
+            owner=self.user, title="Наушники", amount=Decimal("300")
         )
         PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("200"))
         self.assertEqual(purchase.progress_percent, 66)
 
     def test_ordering_puts_priority_first(self):
-        low = PlannedPurchase.objects.create(title="Низкий", priority=0)
-        high = PlannedPurchase.objects.create(title="Высокий", priority=5)
+        low = PlannedPurchase.objects.create(
+            owner=self.user, title="Низкий", priority=0
+        )
+        high = PlannedPurchase.objects.create(
+            owner=self.user, title="Высокий", priority=5
+        )
         self.assertEqual(list(PlannedPurchase.objects.all()), [high, low])
 
     def test_bought_status_sets_bought_date(self):
         purchase = PlannedPurchase.objects.create(
+            owner=self.user,
             title="Кресло",
             amount=Decimal("30000"),
             status=PlannedPurchase.Status.BOUGHT,
@@ -128,6 +139,7 @@ class PlannedPurchaseTests(TestCase):
 
     def test_leaving_bought_clears_bought_date(self):
         purchase = PlannedPurchase.objects.create(
+            owner=self.user,
             title="Кресло",
             amount=Decimal("30000"),
             status=PlannedPurchase.Status.BOUGHT,
@@ -139,6 +151,7 @@ class PlannedPurchaseTests(TestCase):
 
     def test_bought_date_is_not_overwritten(self):
         purchase = PlannedPurchase.objects.create(
+            owner=self.user,
             title="Кресло",
             amount=Decimal("30000"),
             status=PlannedPurchase.Status.BOUGHT,
@@ -150,13 +163,13 @@ class PlannedPurchaseTests(TestCase):
 
     def test_goals_with_contributed_annotation(self):
         purchase = PlannedPurchase.objects.create(
-            title="Ноутбук", amount=Decimal("90000")
+            owner=self.user, title="Ноутбук", amount=Decimal("90000")
         )
         PurchaseContribution.objects.create(purchase=purchase, amount=Decimal("15000"))
-        goal = goals_with_contributed().get(pk=purchase.pk)
+        goal = goals_with_contributed(self.user).get(pk=purchase.pk)
         self.assertEqual(goal.remaining, Decimal("75000.00"))
         total = (
-            goals_with_contributed()
+            goals_with_contributed(self.user)
             .filter(pk=purchase.pk)
             .values_list("contributed_total", flat=True)
             .get()
@@ -182,7 +195,7 @@ class PurchaseViewsTests(TestCase):
         )
 
     def make_goal(self, **kwargs) -> PlannedPurchase:
-        fields = {"title": "Ноутбук", "amount": Decimal("90000")}
+        fields = {"owner": self.user, "title": "Ноутбук", "amount": Decimal("90000")}
         fields.update(kwargs)
         return PlannedPurchase.objects.create(**fields)
 
@@ -224,7 +237,7 @@ class PurchaseViewsTests(TestCase):
     def test_list_shows_active_goal_with_progress(self):
         goal = self.make_goal()
         PurchaseContribution.objects.create(purchase=goal, amount=Decimal("30000"))
-        # Вторая цель — чтобы итоги отличались от строки: иначе проверки
+        # Вторая цель - чтобы итоги отличались от строки: иначе проверки
         # совпадали бы и со строками, и с tfoot сразу.
         self.make_goal(title="Наушники", amount=Decimal("10000"))
 
@@ -240,7 +253,7 @@ class PurchaseViewsTests(TestCase):
         PurchaseContribution.objects.create(purchase=saved, amount=Decimal("5000"))
 
         response = self.client.get(reverse("purchases:index"))
-        # Ноль в знаменателе дал бы «0 ₽ из 0 ₽» и ложное «готово»;
+        # Ноль в знаменателе дал бы "0 ₽ из 0 ₽" и ложное "готово";
         # у свободной цели с накоплениями показываем только их.
         self.assertContains(response, "стоимость не задана")
         self.assertContains(response, "накоплено 5\xa0000 ₽")
@@ -251,7 +264,7 @@ class PurchaseViewsTests(TestCase):
         self.make_goal(title="Копилка", status=PlannedPurchase.Status.SAVING)
 
         response = self.client.get(reverse("purchases:index"))
-        # В форме добавления слова «хочу»/«коплю» есть всегда — проверяем
+        # В форме добавления слова "хочу"/"коплю" есть всегда - проверяем
         # подписи в самих строках таблицы.
         self.assertContains(
             response, '<span class="goal-meta muted">хочу</span>', html=False
@@ -659,7 +672,7 @@ class PurchaseViewsTests(TestCase):
         goal = self.make_goal()
         response = self.client.get(reverse("purchases:detail", args=[goal.pk]))
         form = response.context["form"]
-        # Модель даёт default=timezone.localdate — форма подставляет его.
+        # Модель даёт default=timezone.localdate - форма подставляет его.
         self.assertEqual(form["date"].value(), timezone.localdate())
 
     def test_add_contribution_rejects_non_positive_amount(self):
@@ -809,3 +822,149 @@ class PurchaseViewsTests(TestCase):
             reverse("purchases:contribution_delete", args=[999])
         )
         self.assertEqual(response.status_code, 404)
+
+
+class IsolationTests(TestCase):
+    """Изоляция данных: чужие цели и взносы не видны и недоступны."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="owner", password="test-pass-123")
+        cls.other = User.objects.create_user(username="other", password="test-pass-123")
+        cls.foreign_goal = PlannedPurchase.objects.create(
+            owner=cls.user, title="Чужой ноутбук", amount=Decimal("90000")
+        )
+        cls.foreign_contribution = PurchaseContribution.objects.create(
+            purchase=cls.foreign_goal, amount=Decimal("15000")
+        )
+        cls.foreign_bought = PlannedPurchase.objects.create(
+            owner=cls.user,
+            title="Чужое кресло",
+            amount=Decimal("30000"),
+            status=PlannedPurchase.Status.BOUGHT,
+        )
+        cls.own_goal = PlannedPurchase.objects.create(
+            owner=cls.other, title="Свой велосипед", amount=Decimal("40000")
+        )
+        PurchaseContribution.objects.create(
+            purchase=cls.own_goal, amount=Decimal("5000")
+        )
+
+    def setUp(self):
+        # Все запросы идут от второго пользователя: проверяем, что данные
+        # первого ему недоступны.
+        self.client.force_login(self.other)
+
+    def post_json(self, url: str, payload: dict):
+        """Отправляет JSON-POST от имени второго пользователя."""
+        return self.client.post(
+            url, data=json.dumps(payload), content_type="application/json"
+        )
+
+    def test_list_hides_foreign_active_goal(self):
+        """Чужая активная цель не показывается в списке."""
+        response = self.client.get(reverse("purchases:index"))
+        self.assertNotContains(response, "Чужой ноутбук")
+        self.assertContains(response, "Свой велосипед")
+
+    def test_list_hides_foreign_bought_goal(self):
+        """Чужая купленная цель не показывается в таблице "Куплено"."""
+        response = self.client.get(reverse("purchases:index"))
+        self.assertNotContains(response, "Чужое кресло")
+        self.assertNotContains(response, "<h2>Куплено</h2>", html=False)
+
+    def test_list_totals_count_only_own_goals(self):
+        """Итоги списка считаются только по целям владельца."""
+        response = self.client.get(reverse("purchases:index"))
+        totals = response.context["totals"]
+        self.assertEqual(totals["amount"], Decimal("40000.00"))
+        self.assertEqual(totals["contributed"], Decimal("5000.00"))
+        self.assertEqual(totals["remaining"], Decimal("35000.00"))
+
+    def test_detail_of_foreign_goal_is_404(self):
+        """Чужую карточку цели открыть нельзя."""
+        response = self.client.get(
+            reverse("purchases:detail", args=[self.foreign_goal.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_contribution_to_foreign_goal_is_404(self):
+        """Взнос в чужую цель через её карточку не добавляется."""
+        response = self.client.post(
+            reverse("purchases:detail", args=[self.foreign_goal.pk]),
+            {"date": "2026-09-10", "amount": "100", "comment": ""},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.foreign_goal.contributions.count(), 1)
+
+    def test_update_of_foreign_goal_is_404(self):
+        """Чужую цель нельзя отредактировать."""
+        response = self.post_json(
+            reverse("purchases:purchase_update", args=[self.foreign_goal.pk]),
+            {"title": "Присвоено", "amount": "1", "priority": "0", "status": "wanted"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.foreign_goal.refresh_from_db()
+        self.assertEqual(self.foreign_goal.title, "Чужой ноутбук")
+
+    def test_status_change_of_foreign_goal_is_404(self):
+        """Чужой цели нельзя сменить статус."""
+        response = self.post_json(
+            reverse("purchases:purchase_status", args=[self.foreign_goal.pk]),
+            {"status": "bought"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.foreign_goal.refresh_from_db()
+        self.assertEqual(self.foreign_goal.status, PlannedPurchase.Status.WANTED)
+        self.assertIsNone(self.foreign_goal.bought_at)
+
+    def test_delete_of_foreign_goal_is_404(self):
+        """Чужую цель нельзя удалить вместе со взносами."""
+        response = self.client.post(
+            reverse("purchases:purchase_delete", args=[self.foreign_goal.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(
+            PlannedPurchase.objects.filter(pk=self.foreign_goal.pk).exists()
+        )
+        self.assertTrue(
+            PurchaseContribution.objects.filter(
+                pk=self.foreign_contribution.pk
+            ).exists()
+        )
+
+    def test_update_of_foreign_contribution_is_404(self):
+        """Чужой взнос нельзя отредактировать."""
+        response = self.post_json(
+            reverse(
+                "purchases:contribution_update", args=[self.foreign_contribution.pk]
+            ),
+            {"date": "2026-09-15", "amount": "999", "comment": ""},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.foreign_contribution.refresh_from_db()
+        self.assertEqual(self.foreign_contribution.amount, Decimal("15000.00"))
+
+    def test_delete_of_foreign_contribution_is_404(self):
+        """Чужой взнос нельзя удалить."""
+        response = self.client.post(
+            reverse(
+                "purchases:contribution_delete", args=[self.foreign_contribution.pk]
+            )
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(
+            PurchaseContribution.objects.filter(
+                pk=self.foreign_contribution.pk
+            ).exists()
+        )
+
+    def test_goals_with_contributed_scopes_by_owner(self):
+        """Выборка возвращает цели и суммы только переданного владельца."""
+        foreign = goals_with_contributed(self.user)
+        self.assertEqual(
+            set(foreign.values_list("pk", flat=True)),
+            {self.foreign_goal.pk, self.foreign_bought.pk},
+        )
+        own = goals_with_contributed(self.other).get(pk=self.own_goal.pk)
+        self.assertEqual(own.contributed_total, Decimal("5000.00"))
