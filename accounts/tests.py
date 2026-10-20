@@ -71,7 +71,7 @@ class SignupTests(TestCase):
         self.assertContains(response, reverse("accounts:signup"))
 
     def test_login_page_is_public(self):
-        """Проверяет, что страница входа открыта и приветствует пользователя."""
+        """Проверяет, что страница входа доступна без авторизации."""
         response = self.client.get(reverse("login"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Войдите, чтобы вести свой бюджет.")

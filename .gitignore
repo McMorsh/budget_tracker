@@ -5,7 +5,6 @@ __pycache__/
 *.egg-info/
 .eggs/
 
-#
 .venv/
 venv/
 .uv/
